@@ -1,14 +1,15 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
+pub mod error;
+pub mod types;
+pub mod config;
+pub mod persistence;
+pub mod exchange;
+pub mod strategy;
+pub mod backtest;
+pub mod bot;
+pub mod risk;
+pub mod risk_commands;
+pub mod optimize;
+
+pub use error::{AppError, Result};
