@@ -5,15 +5,11 @@ on:
     branches: [master, main, develop]
     paths:
       - 'src/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
       - '.github/workflows/frontend.yml'
   pull_request:
     branches: [master, main]
     paths:
       - 'src/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
       - '.github/workflows/frontend.yml'
 
 jobs:
@@ -29,26 +25,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: '8'
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            src/node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('src/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Install dependencies
         working-directory: ./src
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Type check
         working-directory: ./src
@@ -66,26 +51,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: '8'
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            src/node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('src/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Install dependencies
         working-directory: ./src
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run ESLint
         working-directory: ./src
@@ -103,26 +77,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: '8'
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            src/node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('src/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Install dependencies
         working-directory: ./src
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Check formatting
         working-directory: ./src
@@ -140,26 +103,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: '8'
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            src/node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('src/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Install dependencies
         working-directory: ./src
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build
         working-directory: ./src
@@ -177,32 +129,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: '8'
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            src/node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('src/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Install dependencies
         working-directory: ./src
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Run tests
         working-directory: ./src
         run: pnpm run test
 
       - name: Upload coverage
+        if: runner.os == 'Linux'
         uses: codecov/codecov-action@v4
         with:
           files: ./src/coverage/lcov.info
