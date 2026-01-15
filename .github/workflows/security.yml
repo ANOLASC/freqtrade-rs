@@ -1,0 +1,131 @@
+name: Security Audit
+
+on:
+  schedule:
+    # 每周一凌晨运行安全扫描
+    - cron: '0 0 * * 1'
+  push:
+    branches: [master, main]
+    paths:
+      - '**/Cargo.lock'
+      - '**/package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/security.yml'
+  pull_request:
+    paths:
+      - '**/Cargo.lock'
+      - '**/package.json'
+      - 'pnpm-lock.yaml'
+
+jobs:
+  # Rust 安全审计
+  rust-audit:
+    name: Rust Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-audit-
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run security audit
+        working-directory: ./src-tauri
+        run: cargo audit
+
+      - name: Report vulnerabilities
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Security Vulnerability Detected',
+              body: 'A security vulnerability was detected in the dependencies. Please review the CI logs.',
+              labels: ['security', 'bug']
+            })
+
+  # npm/pnpm 安全审计
+  node-audit:
+    name: Node.js Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '8'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            src/node_modules
+          key: ${{ runner.os }}-pnpm-audit-${{ hashFiles('src/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-audit-
+
+      - name: Install dependencies
+        working-directory: ./src
+        run: pnpm install --frozen-lockfile
+
+      - name: Run security audit
+        working-directory: ./src
+        run: pnpm audit --prod --level high
+
+      - name: Report vulnerabilities
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Node.js Security Vulnerability Detected',
+              body: 'A security vulnerability was detected in the npm dependencies. Please review the CI logs.',
+              labels: ['security', 'bug']
+            })
+
+  # 依赖漏洞检查报告
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Review dependencies
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          license-check: true
+          vulnerability-check: true
