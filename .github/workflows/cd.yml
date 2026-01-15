@@ -57,11 +57,7 @@ jobs:
 
       # ============ Install tauri-cli ============
       - name: Install tauri-cli
-        uses: actions-rs/install@v0.1
-        with:
-          crate: tauri-cli
-          version: 2
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo install tauri-cli --version "^2"
 
       # ============ Node.js Setup (for frontend) ============
       - name: Install pnpm
