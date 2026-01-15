@@ -54,30 +54,19 @@ jobs:
             ${{ runner.os }}-cargo-
 
       # ============ Node.js Setup (for frontend) ============
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: 'src/pnpm-lock.yaml'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '8'
-
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            src/node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('src/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Install frontend dependencies
-        working-directory: ./src
         run: pnpm install --frozen-lockfile
 
       # ============ Platform-specific Setup ============
