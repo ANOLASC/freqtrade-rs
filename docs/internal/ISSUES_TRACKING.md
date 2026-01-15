@@ -1,9 +1,30 @@
 # freqtrade-rs 问题追踪文档
 
 > **创建日期**: 2026-01-14  
-> **最后更新**: 2026-01-14  
-> **状态**: 进行中  
+> **最后更新**: 2026-01-15  
+> **状态**: 已迁移到 GitHub Issues ✅
 > **严重性**: 高 - 这些问题阻碍了核心交易功能
+>
+> ⚠️ **重要提示**: 本文档的问题已迁移到 GitHub Issues 管理。
+> 请在 https://github.com/ANOLASC/freqtrade-rs/issues 查看和跟踪所有问题。
+>
+> | 问题ID | GitHub Issue | 状态 |
+> |--------|--------------|------|
+> | BOT-001 | [#1](https://github.com/ANOLASC/freqtrade-rs/issues/1) | 🔴 待修复 |
+> | BOT-002 | [#2](https://github.com/ANOLASC/freqtrade-rs/issues/2) | 🔴 待修复 |
+> | BOT-003 | [#3](https://github.com/ANOLASC/freqtrade-rs/issues/3) | 🔴 待修复 |
+> | EXCH-001 | [#4](https://github.com/ANOLASC/freqtrade-rs/issues/4) | 🔴 未实现 |
+> | EXCH-002 | [#5](https://github.com/ANOLASC/freqtrade-rs/issues/5) | 🔴 未实现 |
+> | EXCH-003 | [#6](https://github.com/ANOLASC/freqtrade-rs/issues/6) | 🔴 未实现 |
+> | EXCH-004 | [#7](https://github.com/ANOLASC/freqtrade-rs/issues/7) | 🔴 未实现 |
+> | EXCH-005 | [#8](https://github.com/ANOLASC/freqtrade-rs/issues/8) | 🔴 未实现 |
+> | EXCH-006 | [#9](https://github.com/ANOLASC/freqtrade-rs/issues/9) | 🔴 未实现 |
+> | EXCH-007 | [#10](https://github.com/ANOLASC/freqtrade-rs/issues/10) | 🔴 未实现 |
+> | BACK-001 | [#11](https://github.com/ANOLASC/freqtrade-rs/issues/11) | 🔴 待修复 |
+> | BACK-002 | [#12](https://github.com/ANOLASC/freqtrade-rs/issues/12) | 🔴 待修复 |
+> | BACK-003 | [#13](https://github.com/ANOLASC/freqtrade-rs/issues/13) | 🔴 待修复 |
+> | STRAT-001 | [#14](https://github.com/ANOLASC/freqtrade-rs/issues/14) | 🔴 待修复 |
+> | STRAT-002 | [#15](https://github.com/ANOLASC/freqtrade-rs/issues/15) | 🟡 部分实现 |
 
 ---
 
