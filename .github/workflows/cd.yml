@@ -86,8 +86,7 @@ jobs:
             librsvg2-dev \
             build-essential \
             libssl-dev \
-            pkg-config \
-            webkit2png
+            pkg-config
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
