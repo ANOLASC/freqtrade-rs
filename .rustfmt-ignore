@@ -1,0 +1,12 @@
+# Generated files to ignore during formatting
+# These files are auto-generated and should not be formatted
+
+# SQLx generated files
+*.sqlx.rs
+
+# Tauri generated files
+src-tauri/src-tauri-bindings/
+src-tauri/src-tauri-*.rs
+
+# Build artifacts
+target/

@@ -184,6 +184,9 @@ pnpm run tauri:build     # Build production bundle
 | `config/default.toml` | Bot configuration |
 | `.env.example` | Environment variables template |
 | `src-tauri/tauri.conf.json` | Tauri configuration |
+| `src-tauri/rustfmt.toml` | Rust code formatting rules |
+| `src-tauri/rust-toolchain.toml` | Rust toolchain version |
+| `.rustfmt-ignore` | Files to skip formatting |
 | `tailwind.config.js` | TailwindCSS configuration |
 | `vite.config.ts` | Vite configuration |
 
@@ -203,6 +206,20 @@ Use `?` operator for error propagation. Return `Result<T, AppError>`.
 
 ### 5. Arc for Shared State
 Wrap pools and managers in `Arc` for shared access across threads.
+
+### 6. Code Formatting
+The project uses `rustfmt` for consistent code formatting:
+
+- **Configuration**: `src-tauri/rustfmt.toml`
+- **Toolchain**: `src-tauri/rust-toolchain.toml`
+- **CI Check**: `cargo fmt --all -- --check` runs in CI
+
+Before committing:
+```bash
+cd src-tauri
+cargo fmt  # Format all code
+cargo fmt -- --check  # Verify formatting
+```
 
 ## Testing Strategy
 

@@ -8,6 +8,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/ci.yml'
+      - '.rustfmt-ignore'
   pull_request:
     branches: [master, main]
     paths:
@@ -15,6 +16,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/ci.yml'
+      - '.rustfmt-ignore'
 
 env:
   CARGO_TERM_COLOR: always
