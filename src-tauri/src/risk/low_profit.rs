@@ -53,12 +53,7 @@ impl IProtection for LowProfitPairs {
         None
     }
 
-    fn stop_per_pair(
-        &self,
-        _pair: &str,
-        date_now: DateTime<Utc>,
-        trades: &[Trade],
-    ) -> Option<ProtectionReturn> {
+    fn stop_per_pair(&self, _pair: &str, date_now: DateTime<Utc>, trades: &[Trade]) -> Option<ProtectionReturn> {
         if trades.len() < self.config.required_trades {
             return None;
         }

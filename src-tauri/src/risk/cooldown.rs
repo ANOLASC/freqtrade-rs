@@ -75,12 +75,7 @@ impl IProtection for CooldownPeriod {
         }
     }
 
-    fn stop_per_pair(
-        &self,
-        _pair: &str,
-        date_now: DateTime<Utc>,
-        trades: &[Trade],
-    ) -> Option<ProtectionReturn> {
+    fn stop_per_pair(&self, _pair: &str, date_now: DateTime<Utc>, trades: &[Trade]) -> Option<ProtectionReturn> {
         let lookback_start = date_now - Duration::minutes(self.config.lookback_period);
         let zero = Decimal::ZERO;
 

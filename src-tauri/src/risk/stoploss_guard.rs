@@ -50,12 +50,7 @@ impl IProtection for StoplossGuard {
         self.stop_per_pair("*", date_now, trades)
     }
 
-    fn stop_per_pair(
-        &self,
-        _pair: &str,
-        date_now: DateTime<Utc>,
-        trades: &[Trade],
-    ) -> Option<ProtectionReturn> {
+    fn stop_per_pair(&self, _pair: &str, date_now: DateTime<Utc>, trades: &[Trade]) -> Option<ProtectionReturn> {
         let lookback_start = date_now - Duration::minutes(self.config.lookback_period);
 
         let stoploss_count = trades

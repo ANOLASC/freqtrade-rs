@@ -77,9 +77,7 @@ impl IProtection for MaxDrawdownProtection {
     fn short_desc(&self) -> String {
         format!(
             "Stop trading for {} minutes if drawdown exceeds {}% in last {} minutes",
-            self.config.stop_duration,
-            self.config.max_allowed_drawdown,
-            self.config.lookback_period
+            self.config.stop_duration, self.config.max_allowed_drawdown, self.config.lookback_period
         )
     }
 
@@ -112,12 +110,7 @@ impl IProtection for MaxDrawdownProtection {
         }
     }
 
-    fn stop_per_pair(
-        &self,
-        _pair: &str,
-        _date_now: DateTime<Utc>,
-        _trades: &[Trade],
-    ) -> Option<ProtectionReturn> {
+    fn stop_per_pair(&self, _pair: &str, _date_now: DateTime<Utc>, _trades: &[Trade]) -> Option<ProtectionReturn> {
         None
     }
 }

@@ -16,9 +16,9 @@ impl Repository {
     pub async fn new<P: AsRef<Path>>(db_path: P) -> Result<Self> {
         // Create parent directory if needed
         if let Some(parent) = db_path.as_ref().parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                AppError::Config(format!("Failed to create database directory: {}", e))
-            })?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| AppError::Config(format!("Failed to create database directory: {}", e)))?;
         }
 
         // Get absolute path for database
@@ -34,18 +34,12 @@ impl Repository {
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;
         Self::run_migrations(&pool).await?;
-        Ok(Self {
-            pool: Arc::new(pool),
-        })
+        Ok(Self { pool: Arc::new(pool) })
     }
 
     async fn run_migrations(pool: &SqlitePool) -> Result<()> {
         let migration_sql = include_str!("../../../migrations/001_initial.sql");
-        for statement in migration_sql
-            .split(";")
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-        {
+        for statement in migration_sql.split(";").map(|s| s.trim()).filter(|s| !s.is_empty()) {
             sqlx::query(statement)
                 .execute(pool)
                 .await
@@ -106,20 +100,13 @@ impl Repository {
         Ok(())
     }
 
-    pub async fn get_klines(
-        &self,
-        pair: &str,
-        timeframe: &str,
-        limit: usize,
-    ) -> Result<Vec<OHLCV>> {
-        let rows = sqlx::query(
-            "SELECT * FROM klines WHERE pair = ? AND timeframe = ? ORDER BY open_time DESC LIMIT ?",
-        )
-        .bind(pair)
-        .bind(timeframe)
-        .bind(limit as i64)
-        .fetch_all(&*self.pool)
-        .await?;
+    pub async fn get_klines(&self, pair: &str, timeframe: &str, limit: usize) -> Result<Vec<OHLCV>> {
+        let rows = sqlx::query("SELECT * FROM klines WHERE pair = ? AND timeframe = ? ORDER BY open_time DESC LIMIT ?")
+            .bind(pair)
+            .bind(timeframe)
+            .bind(limit as i64)
+            .fetch_all(&*self.pool)
+            .await?;
         rows.iter().map(|row| self.row_to_kline(row)).collect()
     }
 
@@ -161,8 +148,7 @@ impl Repository {
 
     fn row_to_trade(&self, row: &sqlx::sqlite::SqliteRow) -> Result<Trade> {
         Ok(Trade {
-            id: Uuid::parse_str(row.get("id"))
-                .map_err(|e| AppError::Parse(format!("Invalid UUID: {}", e)))?,
+            id: Uuid::parse_str(row.get("id")).map_err(|e| AppError::Parse(format!("Invalid UUID: {}", e)))?,
             pair: row.get("pair"),
             is_open: row.get::<i32, _>("is_open") != 0,
             exchange: row.get("exchange"),
@@ -208,18 +194,16 @@ impl Repository {
                 .get::<Option<&str>, _>("take_profit")
                 .map(|s| s.parse().ok())
                 .flatten(),
-            exit_reason: row
-                .get::<Option<&str>, _>("exit_reason")
-                .and_then(|s| match s {
-                    "signal" => Some(ExitType::Signal),
-                    "stop_loss" => Some(ExitType::StopLoss),
-                    "take_profit" => Some(ExitType::TakeProfit),
-                    "force_exit" => Some(ExitType::ForceExit),
-                    "stop_loss_on_exchange" => Some(ExitType::StopLossOnExchange),
-                    "emergency_exit" => Some(ExitType::EmergencyExit),
-                    "custom" => Some(ExitType::Custom),
-                    _ => None,
-                }),
+            exit_reason: row.get::<Option<&str>, _>("exit_reason").and_then(|s| match s {
+                "signal" => Some(ExitType::Signal),
+                "stop_loss" => Some(ExitType::StopLoss),
+                "take_profit" => Some(ExitType::TakeProfit),
+                "force_exit" => Some(ExitType::ForceExit),
+                "stop_loss_on_exchange" => Some(ExitType::StopLossOnExchange),
+                "emergency_exit" => Some(ExitType::EmergencyExit),
+                "custom" => Some(ExitType::Custom),
+                _ => None,
+            }),
             profit_abs: row
                 .get::<Option<&str>, _>("profit_abs")
                 .map(|s| s.parse().ok())

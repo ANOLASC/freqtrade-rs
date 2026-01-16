@@ -29,9 +29,7 @@ mod types;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
 
     // Try multiple paths for config file
     let config_paths = [
@@ -72,11 +70,7 @@ async fn main() {
             .unwrap_or(db_path)
     };
 
-    let repository = Arc::new(
-        Repository::new(&db_path)
-            .await
-            .expect("Failed to initialize database"),
-    );
+    let repository = Arc::new(Repository::new(&db_path).await.expect("Failed to initialize database"));
 
     let risk_manager = Arc::new(RiskManager::new(repository.clone()));
 

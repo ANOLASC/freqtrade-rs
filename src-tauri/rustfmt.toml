@@ -1,57 +1,6 @@
-# Rustfmt configuration for freqtrade-rs
-# https://rust-lang.github.io/rustfmt/?version=master
-
-# ============ Basic Settings ============
 edition = "2024"
 max_width = 120
 tab_spaces = 4
 hard_tabs = false
-
-# ============ Imports ============
-imports_granularity = "Crate"
-group_imports = "StdExternalCrate"
-reorder_imports = true
-
-# ============ Spaces & Brackets ============
-spaces_around_eqs = true
-space_before_colon = false
-space_after_colon = true
-
-# ============ Line Formatting ============
 newline_style = "Unix"
-hard_line_length = 100
-wrap_comments = false
-comment_width = 80
-
-# ============ Block Formatting ============
-brace_style = "SameLineWhere"
-control_flow_style = "Plain"
-fn_single_line = false
-fn_args_layout = "Vertical"
-param_layout = "Vertical"
-
-# ============ Expressions ============
-binop_separator = "Back"
-expr_style = "Compressed"
-trailing_comma = "Vertical"
-trailing_zero = true
-
-# ============ Patterns ============
-match_block_trailing_comma = true
-match_wildcard_suffix = "Copy"
-
-# ============ Type Formatting ============
-where_single_line = false
-type_alias_long_align_threshold = 0
-
-# ============ Pet Patterns (Rust 2024) ============
-# Enable new Rust 2024 formatting patterns
-format_macro_bodies = true
-format_macro_matchers = true
-empty_item_single_line = true
-associated_type_bounds_style = "Tidier"
-
-# ============ Unstable Features (for rustfmt 1.80+) ============
-# Uncomment when using rustfmt 1.80 or later
-# normalized_comments = true
-# spill_comments = true
+reorder_imports = true

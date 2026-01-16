@@ -66,10 +66,5 @@ pub trait IProtection: Send + Sync {
 
     /// 检查单对停止
     /// 返回 Some 表示需要停止，None 表示不需要停止
-    fn stop_per_pair(
-        &self,
-        pair: &str,
-        date_now: DateTime<Utc>,
-        trades: &[Trade],
-    ) -> Option<ProtectionReturn>;
+    fn stop_per_pair(&self, pair: &str, date_now: DateTime<Utc>, trades: &[Trade]) -> Option<ProtectionReturn>;
 }

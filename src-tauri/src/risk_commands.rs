@@ -1,8 +1,7 @@
 use crate::error::Result;
 use crate::risk::{
-    CooldownPeriod, CooldownPeriodConfig, LowProfitPairs, LowProfitPairsConfig,
-    MaxDrawdownProtection, MaxDrawdownProtectionConfig, RiskManager, StoplossGuard,
-    StoplossGuardConfig,
+    CooldownPeriod, CooldownPeriodConfig, LowProfitPairs, LowProfitPairsConfig, MaxDrawdownProtection,
+    MaxDrawdownProtectionConfig, RiskManager, StoplossGuard, StoplossGuardConfig,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -79,9 +78,7 @@ pub async fn remove_protection(
 
 /// 列出所有保护机制
 #[tauri::command]
-pub async fn list_protections(
-    state: tauri::State<'_, Arc<RwLock<Option<Arc<RiskManager>>>>>,
-) -> Result<Vec<String>> {
+pub async fn list_protections(state: tauri::State<'_, Arc<RwLock<Option<Arc<RiskManager>>>>>) -> Result<Vec<String>> {
     let risk_mgr_guard = state.read().await;
     if let Some(risk_manager) = risk_mgr_guard.as_ref() {
         Ok(risk_manager.list_protections().await)

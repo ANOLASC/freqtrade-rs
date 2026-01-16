@@ -19,16 +19,8 @@ pub struct BacktestConfig {
 }
 
 impl BacktestEngine {
-    pub fn new(
-        config: BacktestConfig,
-        strategy: Arc<dyn crate::strategy::Strategy>,
-        data: Vec<OHLCV>,
-    ) -> Self {
-        Self {
-            config,
-            strategy,
-            data,
-        }
+    pub fn new(config: BacktestConfig, strategy: Arc<dyn crate::strategy::Strategy>, data: Vec<OHLCV>) -> Self {
+        Self { config, strategy, data }
     }
 
     pub async fn run(&mut self) -> Result<BacktestResult> {
@@ -55,10 +47,8 @@ impl BacktestEngine {
                     open_date: candle.timestamp,
                     close_rate: None,
                     close_date: None,
-                    amount: rust_decimal::Decimal::try_from(balance)
-                        .unwrap_or(rust_decimal::Decimal::ZERO),
-                    stake_amount: rust_decimal::Decimal::try_from(balance)
-                        .unwrap_or(rust_decimal::Decimal::ZERO),
+                    amount: rust_decimal::Decimal::try_from(balance).unwrap_or(rust_decimal::Decimal::ZERO),
+                    stake_amount: rust_decimal::Decimal::try_from(balance).unwrap_or(rust_decimal::Decimal::ZERO),
                     strategy: self.strategy.name().to_string(),
                     timeframe: crate::types::Timeframe::OneHour,
                     stop_loss: None,
@@ -85,21 +75,11 @@ impl BacktestEngine {
 
         let winning_trades = trades
             .iter()
-            .filter(|t| {
-                !t.is_open
-                    && t.profit_abs
-                        .map(|p| p > rust_decimal::Decimal::ZERO)
-                        .unwrap_or(false)
-            })
+            .filter(|t| !t.is_open && t.profit_abs.map(|p| p > rust_decimal::Decimal::ZERO).unwrap_or(false))
             .count();
         let losing_trades = trades
             .iter()
-            .filter(|t| {
-                !t.is_open
-                    && t.profit_abs
-                        .map(|p| p <= rust_decimal::Decimal::ZERO)
-                        .unwrap_or(true)
-            })
+            .filter(|t| !t.is_open && t.profit_abs.map(|p| p <= rust_decimal::Decimal::ZERO).unwrap_or(true))
             .count();
 
         Ok(BacktestResult {

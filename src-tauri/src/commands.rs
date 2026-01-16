@@ -29,9 +29,7 @@ pub async fn start_bot(state: State<'_, AppState>) -> Result<String> {
     let mut bot_guard = state.bot.lock().await;
 
     if bot_guard.is_some() {
-        return Err(crate::error::AppError::Bot(
-            "Bot is already running".to_string(),
-        ));
+        return Err(crate::error::AppError::Bot("Bot is already running".to_string()));
     }
 
     let config = state.config.read().await;
@@ -48,13 +46,11 @@ pub async fn start_bot(state: State<'_, AppState>) -> Result<String> {
     // 添加默认的保护机制
     // 冷却期保护：2次亏损后停止1小时
     risk_manager
-        .add_protection(Box::new(risk::CooldownPeriod::new(
-            risk::CooldownPeriodConfig {
-                stop_duration: 60,
-                lookback_period: 1440,
-                stop_after_losses: 2,
-            },
-        )))
+        .add_protection(Box::new(risk::CooldownPeriod::new(risk::CooldownPeriodConfig {
+            stop_duration: 60,
+            lookback_period: 1440,
+            stop_after_losses: 2,
+        })))
         .await?;
 
     // 最大回撤保护：回撤超过20%时停止
@@ -100,9 +96,7 @@ pub async fn stop_bot(state: State<'_, AppState>) -> Result<String> {
         bot.stop().await?;
         Ok("Bot stopped".to_string())
     } else {
-        Err(crate::error::AppError::Bot(
-            "Bot is not running".to_string(),
-        ))
+        Err(crate::error::AppError::Bot("Bot is not running".to_string()))
     }
 }
 
@@ -180,11 +174,7 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
     let total_trades = trades.len();
     let winning_trades = trades
         .iter()
-        .filter(|t| {
-            t.profit_ratio
-                .map(|p| p > rust_decimal::Decimal::ZERO)
-                .unwrap_or(false)
-        })
+        .filter(|t| t.profit_ratio.map(|p| p > rust_decimal::Decimal::ZERO).unwrap_or(false))
         .count();
 
     let win_rate = if total_trades > 0 {
@@ -212,11 +202,8 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
         if current_balance > peak_balance {
             peak_balance = current_balance;
         }
-        let drawdown =
-            (peak_balance - current_balance) / peak_balance * rust_decimal::Decimal::from(100_i64);
-        if drawdown
-            > rust_decimal::Decimal::try_from(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO)
-        {
+        let drawdown = (peak_balance - current_balance) / peak_balance * rust_decimal::Decimal::from(100_i64);
+        if drawdown > rust_decimal::Decimal::try_from(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO) {
             max_drawdown = drawdown.to_f64().unwrap_or(0.0);
         }
     }
@@ -231,10 +218,7 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
 }
 
 #[tauri::command]
-pub async fn get_equity_curve(
-    state: State<'_, AppState>,
-    timeframe: String,
-) -> Result<Vec<EquityPoint>> {
+pub async fn get_equity_curve(state: State<'_, AppState>, timeframe: String) -> Result<Vec<EquityPoint>> {
     let _trades = state
         .repository
         .get_all_trades()
@@ -262,10 +246,7 @@ pub async fn get_equity_curve(
         let change = (i as f64 * 0.5 - 1.75) * 50.0;
         equity += change;
 
-        points.push(EquityPoint {
-            time,
-            value: equity,
-        });
+        points.push(EquityPoint { time, value: equity });
     }
 
     Ok(points)
@@ -278,17 +259,13 @@ pub async fn get_config(state: State<'_, AppState>) -> Result<crate::config::App
 }
 
 #[tauri::command]
-pub async fn update_config(
-    state: State<'_, AppState>,
-    config: crate::config::AppConfig,
-) -> Result<()> {
+pub async fn update_config(state: State<'_, AppState>, config: crate::config::AppConfig) -> Result<()> {
     let mut state_config = state.config.write().await;
     *state_config = config.clone();
 
     // Save to file
     let config_path = "config/default.toml";
-    let toml_str = toml::to_string_pretty(&config)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+    let toml_str = toml::to_string_pretty(&config).map_err(|e| format!("Failed to serialize config: {}", e))?;
 
     tokio::fs::write(config_path, toml_str)
         .await

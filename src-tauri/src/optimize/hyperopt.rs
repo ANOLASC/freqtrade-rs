@@ -138,17 +138,11 @@ impl crate::strategy::Strategy for StubStrategy {
         Ok(())
     }
 
-    async fn populate_buy_trend(
-        &self,
-        _data: &[crate::types::OHLCV],
-    ) -> Result<Vec<crate::types::Signal>> {
+    async fn populate_buy_trend(&self, _data: &[crate::types::OHLCV]) -> Result<Vec<crate::types::Signal>> {
         Ok(vec![])
     }
 
-    async fn populate_sell_trend(
-        &self,
-        _data: &[crate::types::OHLCV],
-    ) -> Result<Vec<crate::types::Signal>> {
+    async fn populate_sell_trend(&self, _data: &[crate::types::OHLCV]) -> Result<Vec<crate::types::Signal>> {
         Ok(vec![])
     }
 }

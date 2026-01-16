@@ -132,8 +132,8 @@ impl ConfigManager {
             .await
             .map_err(|e| AppError::Config(format!("Failed to read config file: {}", e)))?;
 
-        let config: AppConfig = toml::from_str(&content)
-            .map_err(|e| AppError::Config(format!("Failed to parse config: {}", e)))?;
+        let config: AppConfig =
+            toml::from_str(&content).map_err(|e| AppError::Config(format!("Failed to parse config: {}", e)))?;
 
         Ok(Self { config })
     }
