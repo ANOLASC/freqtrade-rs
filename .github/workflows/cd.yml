@@ -98,9 +98,20 @@ jobs:
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install -y openssl
+          choco install -y openssl nodejs-lts
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL" >> $GITHUB_ENV
           echo "OPENSSL_NO_VENDOR=1" >> $GITHUB_ENV
+
+      - name: Setup Node.js (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ============ Build Frontend ============
+      - name: Build frontend
+        working-directory: ./src
+        run: pnpm build
 
       # ============ Build Tauri App ============
       - name: Build Tauri app
