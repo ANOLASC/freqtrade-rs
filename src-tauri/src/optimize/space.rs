@@ -29,6 +29,12 @@ impl HyperoptValue {
     }
 }
 
+impl Default for HyperoptParams {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParameterSpace {
     pub name: String,

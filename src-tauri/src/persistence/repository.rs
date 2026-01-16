@@ -140,7 +140,7 @@ impl Repository {
             .map(|row| {
                 let config_json: String = row.get("config");
                 let result: BacktestResult =
-                    serde_json::from_str(&config_json).map_err(|e| AppError::Serialization(e))?;
+                    serde_json::from_str(&config_json).map_err(AppError::Serialization)?;
                 Ok(result)
             })
             .collect()
@@ -161,8 +161,7 @@ impl Repository {
                 .with_timezone(&Utc),
             close_rate: row
                 .get::<Option<&str>, _>("close_rate")
-                .map(|s| s.parse().ok())
-                .flatten(),
+                .and_then(|s| s.parse().ok()),
             close_date: row
                 .get::<Option<&str>, _>("close_date")
                 .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
@@ -188,12 +187,10 @@ impl Repository {
             },
             stop_loss: row
                 .get::<Option<&str>, _>("stop_loss")
-                .map(|s| s.parse().ok())
-                .flatten(),
+                .and_then(|s| s.parse().ok()),
             take_profit: row
                 .get::<Option<&str>, _>("take_profit")
-                .map(|s| s.parse().ok())
-                .flatten(),
+                .and_then(|s| s.parse().ok()),
             exit_reason: row.get::<Option<&str>, _>("exit_reason").and_then(|s| match s {
                 "signal" => Some(ExitType::Signal),
                 "stop_loss" => Some(ExitType::StopLoss),
@@ -206,12 +203,10 @@ impl Repository {
             }),
             profit_abs: row
                 .get::<Option<&str>, _>("profit_abs")
-                .map(|s| s.parse().ok())
-                .flatten(),
+                .and_then(|s| s.parse().ok()),
             profit_ratio: row
                 .get::<Option<&str>, _>("profit_ratio")
-                .map(|s| s.parse().ok())
-                .flatten(),
+                .and_then(|s| s.parse().ok()),
         })
     }
 

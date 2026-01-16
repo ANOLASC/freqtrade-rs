@@ -56,7 +56,7 @@ impl IProtection for CooldownPeriod {
             .filter(|t| {
                 t.close_date.is_some()
                     && t.close_date.unwrap() >= lookback_start
-                    && t.profit_ratio.map_or(false, |r| r < zero)
+                    && t.profit_ratio.is_some_and(|r| r < zero)
             })
             .count();
 
@@ -84,7 +84,7 @@ impl IProtection for CooldownPeriod {
             .filter(|t| {
                 t.close_date.is_some()
                     && t.close_date.unwrap() >= lookback_start
-                    && t.profit_ratio.map_or(false, |r| r < zero)
+                    && t.profit_ratio.is_some_and(|r| r < zero)
             })
             .count();
 

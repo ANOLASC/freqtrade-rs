@@ -196,10 +196,16 @@ mod tests {
         [bot]
         max_open_trades = 5
         dry_run = false
+        dry_run_wallet = 10000.0
+        stake_currency = "USDT"
+        stake_amount = 100.0
+        process_only_new_candles = true
 
         [exchange]
         name = "binance"
         key = "test_key"
+        secret = "test_secret"
+        enable_rate_limit = true
         "#;
 
         let config: AppConfig = toml::from_str(config_str).unwrap();

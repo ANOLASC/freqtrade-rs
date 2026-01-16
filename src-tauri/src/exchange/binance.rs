@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use rust_decimal::Decimal;
-use sha2::Sha256;
 use serde::Deserialize;
+use sha2::Sha256;
 
 #[derive(Deserialize)]
 struct BinanceOrderResponse {
@@ -53,14 +53,13 @@ impl BinanceExchange {
     fn sign_query(&self, query: String) -> String {
         let timestamp = Utc::now().timestamp_millis();
         let query_with_timestamp = if query.is_empty() {
-             format!("timestamp={}", timestamp)
+            format!("timestamp={}", timestamp)
         } else {
-             format!("{}&timestamp={}", query, timestamp)
+            format!("{}&timestamp={}", query, timestamp)
         };
 
         type HmacSha256 = Hmac<Sha256>;
-        let mut mac = HmacSha256::new_from_slice(self._api_secret.as_bytes())
-            .expect("HMAC can take key of any size");
+        let mut mac = HmacSha256::new_from_slice(self._api_secret.as_bytes()).expect("HMAC can take key of any size");
         mac.update(query_with_timestamp.as_bytes());
         let result = mac.finalize();
         let signature = hex::encode(result.into_bytes());
@@ -114,7 +113,7 @@ impl Exchange for BinanceExchange {
                 item[4].as_str(),
                 item[5].as_str(),
             ) {
-                let timestamp = chrono::DateTime::from_timestamp(open_time / 1000, 0).unwrap_or_else(|| Utc::now());
+                let timestamp = chrono::DateTime::from_timestamp(open_time / 1000, 0).unwrap_or_else(Utc::now);
 
                 klines.push(OHLCV {
                     timestamp,
@@ -166,21 +165,22 @@ impl Exchange for BinanceExchange {
                 query.push_str("&timeInForce=GTC");
             }
         } else if order.order_type == OrderType::Limit {
-             return Err(AppError::Exchange("Limit order requires price".to_string()));
+            return Err(AppError::Exchange("Limit order requires price".to_string()));
         }
 
         let signed_query = self.sign_query(query);
         let url = format!("{}/api/v3/order?{}", self.get_base_url(), signed_query);
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("X-MBX-APIKEY", &self._api_key)
             .send()
             .await?;
 
         if !response.status().is_success() {
-             let error_text = response.text().await.unwrap_or_default();
-             return Err(AppError::Exchange(format!("Binance error: {}", error_text)));
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Exchange(format!("Binance error: {}", error_text)));
         }
 
         let data: BinanceOrderResponse = response.json().await?;
@@ -199,8 +199,7 @@ impl Exchange for BinanceExchange {
         let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
         let remaining = amount - filled;
 
-        let created_at = chrono::DateTime::from_timestamp(data.transact_time / 1000, 0)
-            .unwrap_or_else(|| Utc::now());
+        let created_at = chrono::DateTime::from_timestamp(data.transact_time / 1000, 0).unwrap_or_else(Utc::now);
 
         Ok(Order {
             id: data.order_id.to_string(),
@@ -238,7 +237,7 @@ impl Exchange for BinanceExchange {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito::{Server, Matcher};
+    use mockito::{Matcher, Server};
     use std::str::FromStr;
 
     #[tokio::test]
@@ -246,12 +245,14 @@ mod tests {
         let mut server = Server::new_async().await;
         let url = server.url();
 
-        let mock = server.mock("POST", "/api/v3/order")
+        let mock = server
+            .mock("POST", "/api/v3/order")
             .match_header("X-MBX-APIKEY", "test_key")
             .match_query(Matcher::Any)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"{
+            .with_body(
+                r#"{
                 "symbol": "BTCUSDT",
                 "orderId": 28,
                 "orderListId": -1,
@@ -265,11 +266,12 @@ mod tests {
                 "timeInForce": "GTC",
                 "type": "MARKET",
                 "side": "BUY"
-            }"#)
-            .create_async().await;
+            }"#,
+            )
+            .create_async()
+            .await;
 
-        let exchange = BinanceExchange::new("test_key".to_string(), "test_secret".to_string())
-            .with_base_url(url);
+        let exchange = BinanceExchange::new("test_key".to_string(), "test_secret".to_string()).with_base_url(url);
 
         let order_req = OrderRequest {
             symbol: "BTCUSDT".to_string(),
