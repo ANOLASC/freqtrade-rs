@@ -50,7 +50,7 @@ jobs:
           workspaces: src-tauri
 
       - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall-action@v1
+        uses: cargo-bins/cargo-binstall@main
 
       - name: Install sqlx-cli
         run: cargo binstall -y sqlx-cli --no-confirm
