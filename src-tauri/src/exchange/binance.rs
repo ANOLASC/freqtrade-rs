@@ -29,15 +29,31 @@ impl BinanceExchange {
 #[async_trait]
 impl Exchange for BinanceExchange {
     async fn fetch_ticker(&self, symbol: &str) -> Result<Ticker> {
-        let url = format!("{}/api/v3/ticker/24hr?symbol={}", self.get_base_url(), symbol);
+        let url = format!(
+            "{}/api/v3/ticker/24hr?symbol={}",
+            self.get_base_url(),
+            symbol
+        );
         let response = self.client.get(&url).send().await?;
         let data: serde_json::Value = response.json().await?;
-        
+
         Ok(Ticker {
             symbol: data["symbol"].as_str().unwrap_or("").to_string(),
-            price: data["lastPrice"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO),
-            volume_24h: data["volume"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO),
-            change_24h: data["priceChangePercent"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO),
+            price: data["lastPrice"]
+                .as_str()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(Decimal::ZERO),
+            volume_24h: data["volume"]
+                .as_str()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(Decimal::ZERO),
+            change_24h: data["priceChangePercent"]
+                .as_str()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(Decimal::ZERO),
         })
     }
 
@@ -49,10 +65,10 @@ impl Exchange for BinanceExchange {
             timeframe,
             limit
         );
-        
+
         let response = self.client.get(&url).send().await?;
         let data: Vec<serde_json::Value> = response.json().await?;
-        
+
         let mut klines = Vec::new();
         for item in data {
             if let (Some(open_time), Some(open), Some(high), Some(low), Some(close), Some(volume)) = (
@@ -65,7 +81,7 @@ impl Exchange for BinanceExchange {
             ) {
                 let timestamp = chrono::DateTime::from_timestamp(open_time / 1000, 0)
                     .unwrap_or_else(|| Utc::now());
-                
+
                 klines.push(OHLCV {
                     timestamp,
                     open: open.parse().unwrap_or(Decimal::ZERO),
@@ -76,32 +92,44 @@ impl Exchange for BinanceExchange {
                 });
             }
         }
-        
+
         Ok(klines)
     }
 
     async fn fetch_balance(&self) -> Result<Balance> {
-        Err(AppError::NotImplemented("fetch_balance not implemented yet".to_string()))
+        Err(AppError::NotImplemented(
+            "fetch_balance not implemented yet".to_string(),
+        ))
     }
 
     async fn fetch_positions(&self) -> Result<Vec<Position>> {
-        Err(AppError::NotImplemented("fetch_positions not implemented yet".to_string()))
+        Err(AppError::NotImplemented(
+            "fetch_positions not implemented yet".to_string(),
+        ))
     }
 
     async fn create_order(&self, _order: OrderRequest) -> Result<Order> {
-        Err(AppError::NotImplemented("create_order not implemented yet".to_string()))
+        Err(AppError::NotImplemented(
+            "create_order not implemented yet".to_string(),
+        ))
     }
 
     async fn cancel_order(&self, _order_id: &str) -> Result<()> {
-        Err(AppError::NotImplemented("cancel_order not implemented yet".to_string()))
+        Err(AppError::NotImplemented(
+            "cancel_order not implemented yet".to_string(),
+        ))
     }
 
     async fn fetch_order(&self, _order_id: &str) -> Result<Order> {
-        Err(AppError::NotImplemented("fetch_order not implemented yet".to_string()))
+        Err(AppError::NotImplemented(
+            "fetch_order not implemented yet".to_string(),
+        ))
     }
 
     async fn fetch_orders(&self, _symbol: &str) -> Result<Vec<Order>> {
-        Err(AppError::NotImplemented("fetch_orders not implemented yet".to_string()))
+        Err(AppError::NotImplemented(
+            "fetch_orders not implemented yet".to_string(),
+        ))
     }
 
     fn get_name(&self) -> &str {

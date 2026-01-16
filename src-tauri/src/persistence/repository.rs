@@ -20,16 +20,16 @@ impl Repository {
                 AppError::Config(format!("Failed to create database directory: {}", e))
             })?;
         }
-        
+
         // Get absolute path for database
         let current_dir = std::env::current_dir().expect("Cannot get current directory");
         let abs_path = current_dir.join(db_path.as_ref());
-        
+
         // Use absolute path format for SQLite with forward slashes
         let db_path_display = abs_path.to_string_lossy().replace("\\", "/");
         let db_url = format!("sqlite:{}?mode=rwc", db_path_display);
         eprintln!("Connecting to database: {}", db_url);
-        
+
         let pool = SqlitePool::connect(&db_url)
             .await
             .map_err(|e| AppError::Database(e.to_string()))?;

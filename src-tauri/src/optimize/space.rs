@@ -37,9 +37,12 @@ pub struct ParameterSpace {
 
 impl ParameterSpace {
     pub fn new(name: String) -> Self {
-        Self { name, space: Vec::new() }
+        Self {
+            name,
+            space: Vec::new(),
+        }
     }
-    
+
     pub fn with_spaces(mut self, spaces: Vec<HyperoptSpace>) -> Self {
         self.space = spaces;
         self
@@ -57,11 +60,11 @@ impl HyperoptParams {
             params: std::collections::HashMap::new(),
         }
     }
-    
+
     pub fn insert(&mut self, key: String, value: HyperoptValue) {
         self.params.insert(key, value);
     }
-    
+
     pub fn get(&self, key: &str) -> Option<&HyperoptValue> {
         self.params.get(key)
     }

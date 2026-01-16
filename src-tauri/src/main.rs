@@ -38,7 +38,7 @@ async fn main() {
         std::path::PathBuf::from("config/default.toml"),
         std::path::PathBuf::from("../config/default.toml"),
     ];
-    
+
     let mut config_manager = None;
     for path in &config_paths {
         if let Ok(c) = ConfigManager::load_from_file(path).await {
@@ -46,7 +46,7 @@ async fn main() {
             break;
         }
     }
-    
+
     let mut config_manager = config_manager.unwrap_or_else(|| {
         eprintln!("Failed to load config from any path, using defaults");
         ConfigManager::new(crate::config::AppConfig::default())
@@ -65,13 +65,13 @@ async fn main() {
         db_path
     } else {
         // Try alternative paths
-        let alt_paths = [
-            db_path.clone(),
-            format!("../{}", db_path),
-        ];
-        alt_paths.into_iter().find(|p| std::path::Path::new(p).exists()).unwrap_or(db_path)
+        let alt_paths = [db_path.clone(), format!("../{}", db_path)];
+        alt_paths
+            .into_iter()
+            .find(|p| std::path::Path::new(p).exists())
+            .unwrap_or(db_path)
     };
-    
+
     let repository = Arc::new(
         Repository::new(&db_path)
             .await

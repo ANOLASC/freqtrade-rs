@@ -17,15 +17,12 @@ impl SMA {
         }
 
         let mut result = vec![None; self.period - 1];
-        
+
         for i in self.period - 1..data.len() {
-            let sum: Decimal = data[i - self.period + 1..=i]
-                .iter()
-                .map(|c| c.close)
-                .sum();
+            let sum: Decimal = data[i - self.period + 1..=i].iter().map(|c| c.close).sum();
             result.push(Some(sum / Decimal::from(self.period as u64)));
         }
-        
+
         Ok(result)
     }
 }
@@ -59,18 +56,18 @@ impl RSI {
             }
         }
 
-        let avg_gain: Decimal = gains[1..=self.period].iter().sum::<Decimal>() 
-            / Decimal::from(self.period as u64);
-        let avg_loss: Decimal = losses[1..=self.period].iter().sum::<Decimal>() 
-            / Decimal::from(self.period as u64);
+        let avg_gain: Decimal =
+            gains[1..=self.period].iter().sum::<Decimal>() / Decimal::from(self.period as u64);
+        let avg_loss: Decimal =
+            losses[1..=self.period].iter().sum::<Decimal>() / Decimal::from(self.period as u64);
 
         let mut prev_avg_gain = avg_gain;
         let mut prev_avg_loss = avg_loss;
 
         for i in self.period..data.len() {
-            let avg_gain = (prev_avg_gain * Decimal::from(self.period as u64 - 1) + gains[i]) 
+            let avg_gain = (prev_avg_gain * Decimal::from(self.period as u64 - 1) + gains[i])
                 / Decimal::from(self.period as u64);
-            let avg_loss = (prev_avg_loss * Decimal::from(self.period as u64 - 1) + losses[i]) 
+            let avg_loss = (prev_avg_loss * Decimal::from(self.period as u64 - 1) + losses[i])
                 / Decimal::from(self.period as u64);
 
             let rs = if avg_loss == Decimal::ZERO {
@@ -79,7 +76,9 @@ impl RSI {
                 avg_gain / avg_loss
             };
 
-            result.push(Some(Decimal::from(100) - (Decimal::from(100) / (Decimal::ONE + rs))));
+            result.push(Some(
+                Decimal::from(100) - (Decimal::from(100) / (Decimal::ONE + rs)),
+            ));
 
             prev_avg_gain = avg_gain;
             prev_avg_loss = avg_loss;

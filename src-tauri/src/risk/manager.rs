@@ -1,9 +1,9 @@
+use super::protection::IProtection;
+use crate::error::Result;
+use crate::persistence::Repository;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::error::Result;
-use crate::persistence::Repository;
-use super::protection::IProtection;
 
 /// 风险管理器
 pub struct RiskManager {
@@ -18,29 +18,29 @@ impl RiskManager {
             repository,
         }
     }
-    
+
     pub async fn add_protection(&self, protection: Box<dyn IProtection>) -> Result<()> {
         let mut protections = self.protections.write().await;
         protections.push(protection);
         Ok(())
     }
-    
+
     pub async fn remove_protection(&self, name: &str) -> Result<bool> {
         let mut protections = self.protections.write().await;
         let original_len = protections.len();
         protections.retain(|p| p.name() != name);
         Ok(protections.len() < original_len)
     }
-    
+
     pub async fn list_protections(&self) -> Vec<String> {
         let protections = self.protections.read().await;
         protections.iter().map(|p| p.name().to_string()).collect()
     }
-    
+
     pub async fn check_global_stop(&self) -> Result<Option<StopReason>> {
         let date_now = Utc::now();
         let all_trades = self.repository.get_all_trades().await?;
-        
+
         let protections = self.protections.read().await;
         for protection in protections.iter() {
             if protection.has_global_stop() {
@@ -53,19 +53,20 @@ impl RiskManager {
                 }
             }
         }
-        
+
         Ok(None)
     }
-    
+
     pub async fn check_pair_stop(&self, pair: &str) -> Result<Option<StopReason>> {
         let date_now = Utc::now();
-        let pair_trades: Vec<_> = self.repository
+        let pair_trades: Vec<_> = self
+            .repository
             .get_all_trades()
             .await?
             .into_iter()
             .filter(|t| t.pair == pair)
             .collect();
-        
+
         let protections = self.protections.read().await;
         for protection in protections.iter() {
             if protection.has_local_stop() {
@@ -78,7 +79,7 @@ impl RiskManager {
                 }
             }
         }
-        
+
         Ok(None)
     }
 }

@@ -1,7 +1,7 @@
 use crate::error::Result;
-use serde::{Serialize, Deserialize};
 use crate::types::*;
 use rust_decimal::prelude::ToPrimitive;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 pub struct BacktestEngine {
@@ -34,14 +34,14 @@ impl BacktestEngine {
     pub async fn run(&mut self) -> Result<BacktestResult> {
         let mut trades = Vec::new();
         let mut balance = self.config.stake_amount;
-        
+
         for (i, candle) in self.data.iter().enumerate() {
             if i < 100 {
                 continue;
             }
 
             let data_slice = &self.data[..=i];
-            
+
             let buy_signals = self.strategy.populate_buy_trend(data_slice).await?;
             let sell_signals = self.strategy.populate_sell_trend(data_slice).await?;
 
@@ -55,8 +55,10 @@ impl BacktestEngine {
                     open_date: candle.timestamp,
                     close_rate: None,
                     close_date: None,
-                    amount: rust_decimal::Decimal::try_from(balance).unwrap_or(rust_decimal::Decimal::ZERO),
-                    stake_amount: rust_decimal::Decimal::try_from(balance).unwrap_or(rust_decimal::Decimal::ZERO),
+                    amount: rust_decimal::Decimal::try_from(balance)
+                        .unwrap_or(rust_decimal::Decimal::ZERO),
+                    stake_amount: rust_decimal::Decimal::try_from(balance)
+                        .unwrap_or(rust_decimal::Decimal::ZERO),
                     strategy: self.strategy.name().to_string(),
                     timeframe: crate::types::Timeframe::OneHour,
                     stop_loss: None,
@@ -81,8 +83,24 @@ impl BacktestEngine {
             }
         }
 
-        let winning_trades = trades.iter().filter(|t| !t.is_open && t.profit_abs.map(|p| p > rust_decimal::Decimal::ZERO).unwrap_or(false)).count();
-        let losing_trades = trades.iter().filter(|t| !t.is_open && t.profit_abs.map(|p| p <= rust_decimal::Decimal::ZERO).unwrap_or(true)).count();
+        let winning_trades = trades
+            .iter()
+            .filter(|t| {
+                !t.is_open
+                    && t.profit_abs
+                        .map(|p| p > rust_decimal::Decimal::ZERO)
+                        .unwrap_or(false)
+            })
+            .count();
+        let losing_trades = trades
+            .iter()
+            .filter(|t| {
+                !t.is_open
+                    && t.profit_abs
+                        .map(|p| p <= rust_decimal::Decimal::ZERO)
+                        .unwrap_or(true)
+            })
+            .count();
 
         Ok(BacktestResult {
             strategy: self.strategy.name().to_string(),
@@ -93,8 +111,13 @@ impl BacktestEngine {
             total_trades: trades.len(),
             winning_trades,
             losing_trades,
-            win_rate: if !trades.is_empty() { winning_trades as f64 / trades.len() as f64 } else { 0.0 },
-            total_profit: rust_decimal::Decimal::try_from(balance - self.config.stake_amount).unwrap_or(rust_decimal::Decimal::ZERO),
+            win_rate: if !trades.is_empty() {
+                winning_trades as f64 / trades.len() as f64
+            } else {
+                0.0
+            },
+            total_profit: rust_decimal::Decimal::try_from(balance - self.config.stake_amount)
+                .unwrap_or(rust_decimal::Decimal::ZERO),
             max_drawdown: 0.0,
             sharpe_ratio: 0.0,
             profit_factor: 0.0,

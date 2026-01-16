@@ -4,49 +4,49 @@ use thiserror::Error;
 pub enum AppError {
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("Exchange error: {0}")]
     Exchange(String),
-    
+
     #[error("Strategy error: {0}")]
     Strategy(String),
-    
+
     #[error("Backtest error: {0}")]
     Backtest(String),
-    
+
     #[error("Trading bot error: {0}")]
     Bot(String),
-    
+
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
-    
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Parse error: {0}")]
     Parse(String),
-    
+
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-    
+
     #[error("WebSocket error: {0}")]
     WebSocket(String),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    
+
     #[error("Decimal error: {0}")]
     Decimal(String),
-    
+
     #[error("Custom error: {0}")]
     Custom(String),
-    
+
     #[error("Not implemented: {0}")]
     NotImplemented(String),
 }

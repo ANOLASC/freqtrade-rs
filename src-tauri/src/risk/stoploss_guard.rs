@@ -1,7 +1,7 @@
+use super::protection::{IProtection, ProtectionReturn};
+use crate::types::{ExitType, Trade};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use crate::types::{ExitType, Trade};
-use super::protection::{IProtection, ProtectionReturn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoplossGuardConfig {
@@ -57,11 +57,11 @@ impl IProtection for StoplossGuard {
         trades: &[Trade],
     ) -> Option<ProtectionReturn> {
         let lookback_start = date_now - Duration::minutes(self.config.lookback_period);
-        
+
         let stoploss_count = trades
             .iter()
             .filter(|t| {
-                t.close_date.is_some() 
+                t.close_date.is_some()
                     && t.close_date.unwrap() >= lookback_start
                     && matches!(
                         t.exit_reason,
@@ -69,7 +69,7 @@ impl IProtection for StoplossGuard {
                     )
             })
             .count();
-        
+
         if stoploss_count >= self.config.max_stoploss_count {
             Some(ProtectionReturn {
                 lock: true,

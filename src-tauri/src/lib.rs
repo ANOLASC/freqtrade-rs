@@ -1,15 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-pub mod error;
-pub mod types;
-pub mod config;
-pub mod persistence;
-pub mod exchange;
-pub mod strategy;
 pub mod backtest;
 pub mod bot;
+pub mod config;
+pub mod error;
+pub mod exchange;
+pub mod optimize;
+pub mod persistence;
 pub mod risk;
 pub mod risk_commands;
-pub mod optimize;
+pub mod strategy;
+pub mod types;
 
 pub use error::{AppError, Result};

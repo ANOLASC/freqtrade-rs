@@ -1,8 +1,8 @@
-use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
-use rust_decimal::Decimal;
-use crate::types::Trade;
 use super::protection::{IProtection, ProtectionReturn};
+use crate::types::Trade;
+use chrono::{DateTime, Duration, Utc};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LowProfitPairsConfig {
@@ -62,21 +62,18 @@ impl IProtection for LowProfitPairs {
         if trades.len() < self.config.required_trades {
             return None;
         }
-        
+
         let lookback_start = date_now - Duration::minutes(self.config.lookback_period);
-        
+
         let recent_trades: Vec<&Trade> = trades
             .iter()
-            .filter(|t| {
-                t.close_date.is_some() 
-                    && t.close_date.unwrap() >= lookback_start
-            })
+            .filter(|t| t.close_date.is_some() && t.close_date.unwrap() >= lookback_start)
             .collect();
-        
+
         if recent_trades.is_empty() {
             return None;
         }
-        
+
         let mut total_profit: f64 = 0.0;
         for trade in &recent_trades {
             if let Some(ratio) = trade.profit_ratio {
@@ -87,9 +84,9 @@ impl IProtection for LowProfitPairs {
                 total_profit += percent;
             }
         }
-        
+
         let avg_profit = total_profit / recent_trades.len() as f64;
-        
+
         if avg_profit < self.config.required_profit {
             Some(ProtectionReturn {
                 lock: true,

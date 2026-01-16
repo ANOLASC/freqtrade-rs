@@ -1,8 +1,8 @@
-use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
-use rust_decimal::Decimal;
-use crate::types::Trade;
 use super::protection::{IProtection, ProtectionReturn};
+use crate::types::Trade;
+use chrono::{DateTime, Duration, Utc};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CooldownPeriodConfig {
@@ -50,16 +50,16 @@ impl IProtection for CooldownPeriod {
     fn global_stop(&self, date_now: DateTime<Utc>, trades: &[Trade]) -> Option<ProtectionReturn> {
         let lookback_start = date_now - Duration::minutes(self.config.lookback_period);
         let zero = Decimal::ZERO;
-        
+
         let losing_trades = trades
             .iter()
             .filter(|t| {
-                t.close_date.is_some() 
+                t.close_date.is_some()
                     && t.close_date.unwrap() >= lookback_start
                     && t.profit_ratio.map_or(false, |r| r < zero)
             })
             .count();
-        
+
         if losing_trades >= self.config.stop_after_losses {
             Some(ProtectionReturn {
                 lock: true,
@@ -83,16 +83,16 @@ impl IProtection for CooldownPeriod {
     ) -> Option<ProtectionReturn> {
         let lookback_start = date_now - Duration::minutes(self.config.lookback_period);
         let zero = Decimal::ZERO;
-        
+
         let losing_trades = trades
             .iter()
             .filter(|t| {
-                t.close_date.is_some() 
+                t.close_date.is_some()
                     && t.close_date.unwrap() >= lookback_start
                     && t.profit_ratio.map_or(false, |r| r < zero)
             })
             .count();
-        
+
         if losing_trades >= self.config.stop_after_losses {
             Some(ProtectionReturn {
                 lock: true,

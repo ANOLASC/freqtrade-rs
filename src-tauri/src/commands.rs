@@ -1,10 +1,10 @@
 use crate::bot::TradingBot;
 use crate::config::ConfigManager;
 use crate::error::Result;
-use rust_decimal::prelude::ToPrimitive;
 use crate::types::*;
 use crate::{backtest, exchange, persistence, risk, strategy};
 use freqtrade_rs_lib::backtest::BacktestConfig;
+use rust_decimal::prelude::ToPrimitive;
 use std::sync::Arc;
 use tauri::State;
 
@@ -172,32 +172,40 @@ impl strategy::Strategy for SimpleStrategy {
 
 #[tauri::command]
 pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats> {
-    let trades = state.repository.get_all_trades()
+    let trades = state
+        .repository
+        .get_all_trades()
         .await
         .map_err(|e| format!("Failed to get trades: {}", e))?;
-    
+
     let total_trades = trades.len();
-    let winning_trades = trades.iter()
-        .filter(|t| t.profit_ratio.map(|p| p > rust_decimal::Decimal::ZERO).unwrap_or(false))
+    let winning_trades = trades
+        .iter()
+        .filter(|t| {
+            t.profit_ratio
+                .map(|p| p > rust_decimal::Decimal::ZERO)
+                .unwrap_or(false)
+        })
         .count();
-    
+
     let win_rate = if total_trades > 0 {
         (winning_trades as f64 / total_trades as f64) * 100.0
     } else {
         0.0
     };
-    
-    let total_profit = trades.iter()
+
+    let total_profit = trades
+        .iter()
         .filter_map(|t| t.profit_abs)
         .fold(rust_decimal::Decimal::ZERO, |acc, p| acc + p)
         .to_f64()
         .unwrap_or(0.0);
-    
+
     // Calculate max drawdown
     let mut peak_balance = rust_decimal::Decimal::from(10000_i64);
     let mut current_balance = rust_decimal::Decimal::from(10000_i64);
     let mut max_drawdown = 0.0;
-    
+
     for trade in &trades {
         if let Some(profit) = trade.profit_abs {
             current_balance += profit;
@@ -205,12 +213,15 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
         if current_balance > peak_balance {
             peak_balance = current_balance;
         }
-        let drawdown = (peak_balance - current_balance) / peak_balance * rust_decimal::Decimal::from(100_i64);
-        if drawdown > rust_decimal::Decimal::try_from(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO) {
+        let drawdown =
+            (peak_balance - current_balance) / peak_balance * rust_decimal::Decimal::from(100_i64);
+        if drawdown
+            > rust_decimal::Decimal::try_from(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO)
+        {
             max_drawdown = drawdown.to_f64().unwrap_or(0.0);
         }
     }
-    
+
     Ok(DashboardStats {
         total_profit,
         win_rate,
@@ -221,38 +232,43 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
 }
 
 #[tauri::command]
-pub async fn get_equity_curve(state: State<'_, AppState>, timeframe: String) -> Result<Vec<EquityPoint>> {
-    let trades = state.repository.get_all_trades()
+pub async fn get_equity_curve(
+    state: State<'_, AppState>,
+    timeframe: String,
+) -> Result<Vec<EquityPoint>> {
+    let trades = state
+        .repository
+        .get_all_trades()
         .await
         .map_err(|e| format!("Failed to get trades: {}", e))?;
-    
+
     // Simplified: Generate mock curve data based on time
     let days_to_show = match timeframe.as_str() {
         "1d" => 1,
         "1w" => 7,
         _ => 1,
     };
-    
+
     let mut equity = 10000.0_f64;
     let mut points = Vec::new();
-    
+
     let start_date = chrono::Utc::now() - chrono::Duration::days(days_to_show as i64);
-    
+
     for i in 0..days_to_show {
         let time = (start_date + chrono::Duration::days(i as i64))
             .format("%H:%M")
             .to_string();
-        
+
         // Simulate fluctuation (can be replaced with real data from DB later)
         let change = (i as f64 * 0.5 - 1.75) * 50.0;
         equity += change;
-        
+
         points.push(EquityPoint {
             time,
             value: equity,
         });
     }
-    
+
     Ok(points)
 }
 
@@ -263,18 +279,21 @@ pub async fn get_config(state: State<'_, AppState>) -> Result<crate::config::App
 }
 
 #[tauri::command]
-pub async fn update_config(state: State<'_, AppState>, config: crate::config::AppConfig) -> Result<()> {
+pub async fn update_config(
+    state: State<'_, AppState>,
+    config: crate::config::AppConfig,
+) -> Result<()> {
     let mut state_config = state.config.write().await;
     *state_config = config.clone();
-    
+
     // Save to file
     let config_path = "config/default.toml";
     let toml_str = toml::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
-    
+
     tokio::fs::write(config_path, toml_str)
         .await
         .map_err(|e| format!("Failed to save config: {}", e))?;
-    
+
     Ok(())
 }
