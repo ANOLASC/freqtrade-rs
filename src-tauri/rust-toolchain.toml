@@ -1,6 +1,6 @@
+[toolchain]
 # Rust toolchain version for freqtrade-rs
 # Using stable for CI consistency
-stable
-
+channel = "stable"
 # Required components for CI
-components: rustfmt, clippy
+components = ["rustfmt", "clippy"]
