@@ -1,8 +1,7 @@
 use crate::bot::TradingBot;
-use crate::config::ConfigManager;
 use crate::error::Result;
 use crate::types::*;
-use crate::{backtest, exchange, persistence, risk, strategy};
+use crate::{exchange, persistence, risk, strategy};
 use freqtrade_rs_lib::backtest::BacktestConfig;
 use rust_decimal::prelude::ToPrimitive;
 use std::sync::Arc;
@@ -118,7 +117,7 @@ pub async fn get_all_trades(state: State<'_, AppState>) -> Result<Vec<Trade>> {
 }
 
 #[tauri::command]
-pub async fn run_backtest(config: BacktestConfig) -> Result<BacktestResult> {
+pub async fn run_backtest(_config: BacktestConfig) -> Result<BacktestResult> {
     Ok(BacktestResult {
         strategy: "TestStrategy".to_string(),
         pair: "BTCUSDT".to_string(),
@@ -236,7 +235,7 @@ pub async fn get_equity_curve(
     state: State<'_, AppState>,
     timeframe: String,
 ) -> Result<Vec<EquityPoint>> {
-    let trades = state
+    let _trades = state
         .repository
         .get_all_trades()
         .await

@@ -57,6 +57,9 @@ jobs:
       - name: Install sqlx-cli
         run: cargo binstall -y sqlx-cli
 
+      - name: Setup frontend for Tauri proc macro
+        run: mkdir -p src/dist && echo '<html></html>' > src/dist/index.html
+
       - name: Check formatting
         working-directory: ./src-tauri
         run: cargo fmt --all -- --check

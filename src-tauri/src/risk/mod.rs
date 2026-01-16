@@ -10,7 +10,6 @@ pub mod stoploss_guard;
 
 pub use cooldown::{CooldownPeriod, CooldownPeriodConfig};
 pub use low_profit::{LowProfitPairs, LowProfitPairsConfig};
-pub use manager::{RiskManager, StopReason};
+pub use manager::RiskManager;
 pub use max_drawdown::{MaxDrawdownProtection, MaxDrawdownProtectionConfig};
-pub use protection::{IProtection, ProtectionLock, ProtectionReturn};
 pub use stoploss_guard::{StoplossGuard, StoplossGuardConfig};
