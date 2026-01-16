@@ -13,9 +13,43 @@ env:
   TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
 jobs:
-  # 为所有平台构建
+  frontend-build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'src/pnpm-lock.yaml'
+
+      - name: Install frontend dependencies
+        working-directory: ./src
+        run: pnpm install
+
+      - name: Build frontend
+        working-directory: ./src
+        run: pnpm build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: src/dist
+          if-no-files-found: error
+
   build:
     name: Build for ${{ matrix.os }}
+    needs: frontend-build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -42,37 +76,26 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            src-tauri/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          workspaces: src-tauri
 
-      # ============ Install tauri-cli ============
-      - name: Install tauri-cli
-        run: cargo install tauri-cli --version "^2"
-
-      # ============ Node.js Setup (for frontend) ============
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      # ============ Download Frontend ============
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
         with:
-          version: '9'
+          name: frontend-dist
+          path: src/dist
 
+      # ============ Node.js Setup (for tauri cli via npm if needed, or just environment) ============
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install frontend dependencies
-        working-directory: ./src
-        run: pnpm install
+      - name: Install tauri-cli
+        run: npm install -g @tauri-apps/cli
 
       # ============ Platform-specific Setup ============
       - name: Install dependencies (Ubuntu)
@@ -97,25 +120,14 @@ jobs:
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install -y openssl nodejs-lts
+          choco install -y openssl
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL" >> $GITHUB_ENV
           echo "OPENSSL_NO_VENDOR=1" >> $GITHUB_ENV
-
-      - name: Setup Node.js (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # ============ Build Frontend ============
-      - name: Build frontend
-        working-directory: ./src
-        run: pnpm build
 
       # ============ Build Tauri App ============
       - name: Build Tauri app
         working-directory: ./src-tauri
-        run: cargo tauri build
+        run: tauri build
 
       # ============ Upload Artifacts ============
       - name: Upload artifact
