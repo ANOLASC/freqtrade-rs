@@ -52,6 +52,9 @@ jobs:
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall-action@v1
 
+      - name: Install sqlx-cli
+        run: cargo binstall -y sqlx-cli --no-confirm
+
       - name: Check formatting
         working-directory: ./src-tauri
         run: cargo fmt --all -- --check
@@ -67,9 +70,6 @@ jobs:
       - name: Check compilation
         working-directory: ./src-tauri
         run: cargo check --all-features
-
-      - name: Install sqlx-cli
-        run: cargo binstall -y sqlx-cli --no-confirm
 
       - name: Setup SQLite Database
         working-directory: ./src-tauri
