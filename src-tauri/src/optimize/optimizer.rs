@@ -1,7 +1,5 @@
-use crate::backtest::BacktestEngine;
 use crate::error::Result;
-use crate::optimize::{HyperoptParams, HyperoptValue};
-use crate::types::BacktestResult;
+use crate::optimize::HyperoptParams;
 
 #[derive(Debug, Clone, Copy)]
 pub struct OptimizerConfig {

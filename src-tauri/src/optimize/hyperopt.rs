@@ -23,13 +23,12 @@ pub struct HyperoptEpoch {
 }
 
 pub struct Hyperopt {
-    repository: Arc<Repository>,
     config: HyperoptConfig,
 }
 
 impl Hyperopt {
-    pub fn new(repository: Arc<Repository>, config: HyperoptConfig) -> Self {
-        Self { repository, config }
+    pub fn new(_repository: Arc<Repository>, config: HyperoptConfig) -> Self {
+        Self { config }
     }
 
     pub async fn run(&self) -> Result<OptimizerResult> {
@@ -96,7 +95,7 @@ impl Hyperopt {
         Ok(params)
     }
 
-    async fn run_backtest(&self, params: &HyperoptParams) -> Result<BacktestResult> {
+    async fn run_backtest(&self, _params: &HyperoptParams) -> Result<BacktestResult> {
         let config = BacktestConfig {
             start_date: chrono::Utc::now() - chrono::Duration::days(30),
             end_date: chrono::Utc::now(),
@@ -124,12 +123,6 @@ pub struct OptimizerResult {
 }
 
 struct StubStrategy;
-
-impl StubStrategy {
-    fn new() -> Self {
-        Self
-    }
-}
 
 #[async_trait::async_trait]
 impl crate::strategy::Strategy for StubStrategy {

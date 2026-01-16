@@ -7,16 +7,16 @@ use chrono::Utc;
 use rust_decimal::Decimal;
 
 pub struct BinanceExchange {
-    api_key: String,
-    api_secret: String,
+    _api_key: String,
+    _api_secret: String,
     client: reqwest::Client,
 }
 
 impl BinanceExchange {
     pub fn new(api_key: String, api_secret: String) -> Self {
         Self {
-            api_key,
-            api_secret,
+            _api_key: api_key,
+            _api_secret: api_secret,
             client: reqwest::Client::new(),
         }
     }

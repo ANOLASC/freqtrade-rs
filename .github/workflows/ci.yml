@@ -71,8 +71,18 @@ jobs:
       - name: Install sqlx-cli
         run: cargo binstall -y sqlx-cli --no-confirm
 
+      - name: Setup SQLite Database
+        working-directory: ./src-tauri
+        env:
+          DATABASE_URL: sqlite:freqtrade.db
+        run: |
+          cargo sqlx database create
+          cargo sqlx migrate run --source ../migrations
+
       - name: Prepare SQLx offline data
         working-directory: ./src-tauri
+        env:
+          DATABASE_URL: sqlite:freqtrade.db
         run: |
           cargo sqlx prepare --locked -- --all-features
           echo "SQLX_OFFLINE=true" >> $GITHUB_ENV
