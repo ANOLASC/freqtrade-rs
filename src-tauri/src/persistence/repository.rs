@@ -139,8 +139,7 @@ impl Repository {
         rows.iter()
             .map(|row| {
                 let config_json: String = row.get("config");
-                let result: BacktestResult =
-                    serde_json::from_str(&config_json).map_err(AppError::Serialization)?;
+                let result: BacktestResult = serde_json::from_str(&config_json).map_err(AppError::Serialization)?;
                 Ok(result)
             })
             .collect()
@@ -159,9 +158,7 @@ impl Repository {
             open_date: DateTime::parse_from_rfc3339(row.get("open_date"))
                 .map_err(|e| AppError::Parse(format!("Invalid datetime: {}", e)))?
                 .with_timezone(&Utc),
-            close_rate: row
-                .get::<Option<&str>, _>("close_rate")
-                .and_then(|s| s.parse().ok()),
+            close_rate: row.get::<Option<&str>, _>("close_rate").and_then(|s| s.parse().ok()),
             close_date: row
                 .get::<Option<&str>, _>("close_date")
                 .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
@@ -185,12 +182,8 @@ impl Repository {
                 "1d" => Timeframe::OneDay,
                 _ => Timeframe::OneHour,
             },
-            stop_loss: row
-                .get::<Option<&str>, _>("stop_loss")
-                .and_then(|s| s.parse().ok()),
-            take_profit: row
-                .get::<Option<&str>, _>("take_profit")
-                .and_then(|s| s.parse().ok()),
+            stop_loss: row.get::<Option<&str>, _>("stop_loss").and_then(|s| s.parse().ok()),
+            take_profit: row.get::<Option<&str>, _>("take_profit").and_then(|s| s.parse().ok()),
             exit_reason: row.get::<Option<&str>, _>("exit_reason").and_then(|s| match s {
                 "signal" => Some(ExitType::Signal),
                 "stop_loss" => Some(ExitType::StopLoss),
@@ -201,12 +194,8 @@ impl Repository {
                 "custom" => Some(ExitType::Custom),
                 _ => None,
             }),
-            profit_abs: row
-                .get::<Option<&str>, _>("profit_abs")
-                .and_then(|s| s.parse().ok()),
-            profit_ratio: row
-                .get::<Option<&str>, _>("profit_ratio")
-                .and_then(|s| s.parse().ok()),
+            profit_abs: row.get::<Option<&str>, _>("profit_abs").and_then(|s| s.parse().ok()),
+            profit_ratio: row.get::<Option<&str>, _>("profit_ratio").and_then(|s| s.parse().ok()),
         })
     }
 
