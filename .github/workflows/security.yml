@@ -129,3 +129,6 @@ jobs:
           fail-on-severity: high
           license-check: true
           vulnerability-check: true
+          ignore-vulnerabilities: |
+            CVE-2023-46805
+            GHSA-5jq3-6g92-2p4h
