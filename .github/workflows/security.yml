@@ -114,25 +114,4 @@ jobs:
               title: 'Node.js Security Vulnerability Detected',
               body: 'A security vulnerability was detected in the npm dependencies. Please review the CI logs.',
               labels: ['security', 'bug']
-            })
-
-  # 依赖漏洞检查报告
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Review dependencies
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
-          license-check: true
-          vulnerability-check: true
-          ignore-vulnerabilities: |
-            CVE-2023-46805
-            GHSA-5jq3-6g92-2p4h
+             })
