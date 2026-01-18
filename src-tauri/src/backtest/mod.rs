@@ -4,6 +4,7 @@ use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+#[allow(dead_code)]
 pub struct BacktestEngine {
     config: BacktestConfig,
     strategy: Arc<dyn crate::strategy::Strategy>,
@@ -11,6 +12,7 @@ pub struct BacktestEngine {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BacktestConfig {
     pub start_date: chrono::DateTime<chrono::Utc>,
     pub end_date: chrono::DateTime<chrono::Utc>,
@@ -19,10 +21,12 @@ pub struct BacktestConfig {
 }
 
 impl BacktestEngine {
+    #[allow(dead_code)]
     pub fn new(config: BacktestConfig, strategy: Arc<dyn crate::strategy::Strategy>, data: Vec<OHLCV>) -> Self {
         Self { config, strategy, data }
     }
 
+    #[allow(dead_code)]
     pub async fn run(&mut self) -> Result<BacktestResult> {
         let mut trades = Vec::new();
         let mut balance = self.config.stake_amount;
