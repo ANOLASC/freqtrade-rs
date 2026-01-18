@@ -158,10 +158,12 @@ impl ConfigManager {
         &self.config
     }
 
+    #[allow(dead_code)]
     pub fn config_mut(&mut self) -> &mut AppConfig {
         &mut self.config
     }
 
+    #[allow(dead_code)]
     pub async fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let content = toml::to_string_pretty(&self.config)
             .map_err(|e| AppError::Config(format!("Failed to serialize config: {}", e)))?;
@@ -196,15 +198,23 @@ mod tests {
         [bot]
         max_open_trades = 5
         dry_run = false
+        stake_currency = "USDT"
+        stake_amount = 200.0
+        dry_run_wallet = 50000.0
+        process_only_new_candles = false
 
         [exchange]
         name = "binance"
         key = "test_key"
+        secret = "test_secret"
+        enable_rate_limit = true
         "#;
 
         let config: AppConfig = toml::from_str(config_str).unwrap();
         assert_eq!(config.bot.max_open_trades, 5);
         assert_eq!(config.bot.dry_run, false);
+        assert_eq!(config.bot.stake_amount, 200.0);
         assert_eq!(config.exchange.key, "test_key");
+        assert_eq!(config.exchange.secret, "test_secret");
     }
 }

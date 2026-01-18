@@ -34,6 +34,12 @@ impl RandomOptimizer {
     }
 }
 
+impl Default for RandomOptimizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Optimizer for RandomOptimizer {
     fn name(&self) -> &str {
         "Random"

@@ -89,7 +89,7 @@ jobs:
         env:
           DATABASE_URL: sqlite:freqtrade.db
         run: |
-          cargo sqlx prepare --locked -- --all-features
+          cargo sqlx prepare -- --locked --all-features
           echo "SQLX_OFFLINE=true" >> $GITHUB_ENV
 
       - name: Build with SQLx offline

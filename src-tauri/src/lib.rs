@@ -1,4 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![allow(dead_code)]
+#![allow(clippy::upper_case_acronyms)]
+#![allow(clippy::collapsible_if)]
 
 pub mod backtest;
 pub mod bot;

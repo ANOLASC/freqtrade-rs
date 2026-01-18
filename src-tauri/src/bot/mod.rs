@@ -82,6 +82,7 @@ impl TradingBot {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn pause(&self) -> Result<()> {
         *self.status.write().await = BotStatus::Paused;
         Ok(())

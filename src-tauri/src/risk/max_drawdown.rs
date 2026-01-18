@@ -53,10 +53,7 @@ impl MaxDrawdownProtection {
 
                 if peak_balance > Decimal::ZERO {
                     let ratio = drawdown / peak_balance;
-                    let ratio_f64: f64 = match ratio.try_into() {
-                        Ok(v) => v,
-                        Err(_) => 0.0,
-                    };
+                    let ratio_f64: f64 = ratio.try_into().unwrap_or(0.0);
                     let drawdown_pct = ratio_f64 * 100.0;
                     if drawdown_pct > max_drawdown {
                         max_drawdown = drawdown_pct;
