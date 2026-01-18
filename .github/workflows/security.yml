@@ -22,6 +22,8 @@ jobs:
   rust-audit:
     name: Rust Dependency Audit
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,7 +45,7 @@ jobs:
             ${{ runner.os }}-cargo-audit-
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: cargo install --force cargo-audit
 
       - name: Run security audit
         working-directory: ./src-tauri
@@ -66,6 +68,8 @@ jobs:
   node-audit:
     name: Node.js Dependency Audit
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
