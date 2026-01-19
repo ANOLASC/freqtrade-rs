@@ -114,7 +114,7 @@ impl TickDataRepository {
             total_inserted += inserted;
 
             // Update cache for each chunk
-            let futures = chunk.iter().map(|tick| self.cache.push_tick(tick));
+            let futures: Vec<_> = chunk.iter().map(|tick| self.cache.push_tick(tick)).collect();
             let results = join_all(futures).await;
 
             for (tick, result) in chunk.iter().zip(results) {
