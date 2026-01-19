@@ -1,4 +1,5 @@
 use chrono::{DateTime, Duration, Utc};
+use futures::future::join_all;
 use rust_decimal::Decimal;
 use sqlx::{PgPool, QueryBuilder, Row};
 use std::collections::HashMap;
@@ -113,8 +114,11 @@ impl TickDataRepository {
             total_inserted += inserted;
 
             // Update cache for each chunk
-            for tick in chunk {
-                if let Err(e) = self.cache.push_tick(tick).await {
+            let futures = chunk.iter().map(|tick| self.cache.push_tick(tick));
+            let results = join_all(futures).await;
+
+            for (tick, result) in chunk.iter().zip(results) {
+                if let Err(e) = result {
                     warn!("Failed to update cache for tick {}: {}", tick.trade_id, e);
                 }
             }
