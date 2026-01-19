@@ -151,6 +151,12 @@ impl TradingBot {
                     // 2. Calculate amount based on stake amount
                     let stake_amount = rust_decimal::Decimal::from_f64_retain(self.config.stake_amount)
                         .unwrap_or(rust_decimal::Decimal::ZERO);
+
+                    if stake_amount <= rust_decimal::Decimal::ZERO {
+                        eprintln!("Invalid stake amount: {}", stake_amount);
+                        return Ok(());
+                    }
+
                     let amount = stake_amount / current_price;
 
                     // 3. Check balance
