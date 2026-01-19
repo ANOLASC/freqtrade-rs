@@ -60,7 +60,7 @@
 
 2. **设置 upstream 远程**
    ```bash
-   git remote add upstream https://github.com/code-yeongyu/freqtrade-rs.git
+   git remote add upstream https://github.com/ANOLASC/freqtrade-rs.git
    ```
 
 3. **安装依赖**
@@ -367,7 +367,7 @@ describe('Trade', () => {
 
 ### 我想贡献但不知道从哪里开始
 
-查看 [Good First Issues](https://github.com/code-yeongyu/freqtrade-rs/issues?q=label:good+first+issue) 标签。
+查看 [Good First Issues](https://github.com/ANOLASC/freqtrade-rs/issues?q=label:good+first+issue) 标签。
 
 ### 关于项目有问题
 
