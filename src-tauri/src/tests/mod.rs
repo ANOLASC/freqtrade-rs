@@ -10,5 +10,4 @@ mod tests {
         assert_eq!(manager.config().bot.stake_currency, "USDT");
         assert_eq!(manager.config().exchange.name, "binance");
     }
-
 }
