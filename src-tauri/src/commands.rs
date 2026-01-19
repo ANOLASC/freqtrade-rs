@@ -3,7 +3,6 @@ use crate::error::Result;
 use crate::types::*;
 use crate::{exchange, persistence, risk, strategy};
 use freqtrade_rs_lib::backtest::BacktestConfig;
-use rust_decimal::prelude::ToPrimitive;
 use std::sync::Arc;
 use tauri::State;
 
@@ -165,56 +164,11 @@ impl strategy::Strategy for SimpleStrategy {
 
 #[tauri::command]
 pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats> {
-    let trades = state
+    state
         .repository
-        .get_all_trades()
+        .get_dashboard_stats()
         .await
-        .map_err(|e| format!("Failed to get trades: {}", e))?;
-
-    let total_trades = trades.len();
-    let winning_trades = trades
-        .iter()
-        .filter(|t| t.profit_ratio.map(|p| p > rust_decimal::Decimal::ZERO).unwrap_or(false))
-        .count();
-
-    let win_rate = if total_trades > 0 {
-        (winning_trades as f64 / total_trades as f64) * 100.0
-    } else {
-        0.0
-    };
-
-    let total_profit = trades
-        .iter()
-        .filter_map(|t| t.profit_abs)
-        .fold(rust_decimal::Decimal::ZERO, |acc, p| acc + p)
-        .to_f64()
-        .unwrap_or(0.0);
-
-    // Calculate max drawdown
-    let mut peak_balance = rust_decimal::Decimal::from(10000_i64);
-    let mut current_balance = rust_decimal::Decimal::from(10000_i64);
-    let mut max_drawdown = 0.0;
-
-    for trade in &trades {
-        if let Some(profit) = trade.profit_abs {
-            current_balance += profit;
-        }
-        if current_balance > peak_balance {
-            peak_balance = current_balance;
-        }
-        let drawdown = (peak_balance - current_balance) / peak_balance * rust_decimal::Decimal::from(100_i64);
-        if drawdown > rust_decimal::Decimal::try_from(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO) {
-            max_drawdown = drawdown.to_f64().unwrap_or(0.0);
-        }
-    }
-
-    Ok(DashboardStats {
-        total_profit,
-        win_rate,
-        open_trades: trades.iter().filter(|t| t.is_open).count(),
-        max_drawdown,
-        total_balance: current_balance.to_f64().unwrap_or(0.0),
-    })
+        .map_err(|e| crate::error::AppError::Database(format!("Failed to get dashboard stats: {}", e)))
 }
 
 #[tauri::command]
