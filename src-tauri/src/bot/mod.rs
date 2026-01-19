@@ -154,6 +154,7 @@ impl TradingBot {
                     let amount = stake_amount / current_price;
 
                     // 3. Check balance
+                    // Ensure we have enough of the stake currency (e.g. USDT) to cover the trade
                     let has_funds = match self.exchange.fetch_balance(&self.config.stake_currency).await {
                         Ok(balance) => {
                             if balance.free >= stake_amount {
