@@ -13,6 +13,7 @@ pub mod persistence;
 pub mod risk;
 pub mod risk_commands;
 pub mod strategy;
+pub mod tests;
 pub mod types;
 
 pub use error::{AppError, Result};

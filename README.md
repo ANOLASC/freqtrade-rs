@@ -1,5 +1,6 @@
 # freqtrade-rs
 
+[![codecov](https://codecov.io/gh/ANOLASC/freqtrade-rs/graph/badge.svg)](https://codecov.io/gh/ANOLASC/freqtrade-rs)
 ![Freqtrade-rs Logo](https://img.shields.io/badge/freqtrade-rs/freqtrade-rs)
 ![Tauri](https://img.shields.io/badge/Tauri/Tauri-black)
 ![Rust](https://img.shields.io/badge/Rust/rust-1.70+?style=flat-square&logo=rust)

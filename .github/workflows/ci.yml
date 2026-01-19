@@ -57,6 +57,9 @@ jobs:
       - name: Install sqlx-cli
         run: cargo binstall -y sqlx-cli
 
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
       - name: Setup frontend for Tauri proc macro
         run: mkdir -p src/dist && echo '<html></html>' > src/dist/index.html
 
@@ -68,9 +71,15 @@ jobs:
         working-directory: ./src-tauri
         run: cargo clippy --all-features -- -D warnings -A clippy::all
 
-      - name: Run tests
+      - name: Run tests and generate coverage
         working-directory: ./src-tauri
-        run: cargo test --all-features -- --test-threads=4
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info --fail-under-lines 0
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./src-tauri/lcov.info
 
       - name: Check compilation
         working-directory: ./src-tauri
