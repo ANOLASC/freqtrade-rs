@@ -127,7 +127,7 @@ freqtrade-rs/
 ## 🔗 相关资源
 
 - [freqtrade Python](https://github.com/freqtrade/freqtrade) - 原版Python项目
-- [freqtrade-rs GitHub](https://github.com/code-yeongyu/freqtrade-rs) - 本项目仓库
+- [freqtrade-rs GitHub](https://github.com/ANOLASC/freqtrade-rs) - 本项目仓库
 
 ## 🤝 许可证
 
