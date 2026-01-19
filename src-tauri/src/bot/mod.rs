@@ -1,6 +1,7 @@
 use crate::error::Result;
 use crate::types::*;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct TradingBot {
@@ -135,8 +136,97 @@ impl TradingBot {
                 if self.config.dry_run {
                     eprintln!("[DRY RUN] Would buy {}", pair);
                 } else {
-                    // TODO: 实现实际的买入逻辑
-                    eprintln!("Buy signal for {}", pair);
+                    // Actual buy execution
+                    // 1. Get current price (use last kline close as proxy for estimation)
+                    let current_price = klines
+                        .last()
+                        .map(|k| k.close)
+                        .unwrap_or(rust_decimal::Decimal::ZERO);
+
+                    if current_price <= rust_decimal::Decimal::ZERO {
+                        eprintln!("Invalid price for {}: {}", pair, current_price);
+                        return Ok(());
+                    }
+
+                    // 2. Calculate amount based on stake amount
+                    let stake_amount = rust_decimal::Decimal::from_f64_retain(self.config.stake_amount)
+                        .unwrap_or(rust_decimal::Decimal::ZERO);
+                    let amount = stake_amount / current_price;
+
+                    // 3. Check balance
+                    let has_funds = match self.exchange.fetch_balance(&self.config.stake_currency).await {
+                        Ok(balance) => {
+                            if balance.free >= stake_amount {
+                                true
+                            } else {
+                                eprintln!(
+                                    "Insufficient funds for {}: required {}, available {}",
+                                    pair, stake_amount, balance.free
+                                );
+                                false
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to check balance: {}", e);
+                            // If check fails, we might want to skip or proceed depending on risk policy.
+                            // Here we choose to skip to be safe.
+                            false
+                        }
+                    };
+
+                    if !has_funds {
+                        return Ok(());
+                    }
+
+                    // 4. Create Order
+                    let order_req = OrderRequest {
+                        symbol: pair.to_string(),
+                        side: TradeSide::Buy,
+                        order_type: OrderType::Market,
+                        amount: amount.round_dp(8), // Round to avoid precision issues
+                        price: None,
+                    };
+
+                    match self.exchange.create_order(order_req).await {
+                        Ok(order) => {
+                            eprintln!("Buy order executed for {}: {:?}", pair, order);
+                            // 5. Save trade to DB
+                            let trade = Trade {
+                                id: Uuid::new_v4(),
+                                pair: pair.to_string(),
+                                is_open: true,
+                                exchange: self.exchange.get_name().to_string(),
+                                open_rate: order.price.unwrap_or(current_price), // Use execution price or estimate
+                                open_date: order.created_at,
+                                close_rate: None,
+                                close_date: None,
+                                amount: order.amount,
+                                stake_amount,
+                                strategy: self.strategy.name().to_string(),
+                                timeframe: match timeframe {
+                                    "1m" => Timeframe::OneMinute,
+                                    "5m" => Timeframe::FiveMinutes,
+                                    "15m" => Timeframe::FifteenMinutes,
+                                    "30m" => Timeframe::ThirtyMinutes,
+                                    "1h" => Timeframe::OneHour,
+                                    "4h" => Timeframe::FourHours,
+                                    "1d" => Timeframe::OneDay,
+                                    _ => Timeframe::OneHour,
+                                },
+                                stop_loss: None,   // Should be set by strategy/risk manager
+                                take_profit: None, // Should be set by strategy/risk manager
+                                exit_reason: None,
+                                profit_abs: None,
+                                profit_ratio: None,
+                            };
+                            if let Err(e) = self.repository.create_trade(&trade).await {
+                                eprintln!("Failed to save trade for {}: {}", pair, e);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to execute buy order for {}: {}", pair, e);
+                        }
+                    }
                 }
             }
         }

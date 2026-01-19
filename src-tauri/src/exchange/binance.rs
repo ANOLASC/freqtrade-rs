@@ -23,6 +23,18 @@ struct BinanceOrderResponse {
     status: String,
 }
 
+#[derive(Deserialize, Debug)]
+struct BinanceBalance {
+    asset: String,
+    free: String,
+    locked: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct BinanceAccountResponse {
+    balances: Vec<BinanceBalance>,
+}
+
 pub struct BinanceExchange {
     _api_key: String,
     _api_secret: String,
@@ -129,10 +141,37 @@ impl Exchange for BinanceExchange {
         Ok(klines)
     }
 
-    async fn fetch_balance(&self) -> Result<Balance> {
-        Err(AppError::NotImplemented(
-            "fetch_balance not implemented yet".to_string(),
-        ))
+    async fn fetch_balance(&self, currency: &str) -> Result<Balance> {
+        let signed_query = self.sign_query("".to_string());
+        let url = format!("{}/api/v3/account?{}", self.get_base_url(), signed_query);
+
+        let response = self
+            .client
+            .get(&url)
+            .header("X-MBX-APIKEY", &self._api_key)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+             let error_text = response.text().await.unwrap_or_default();
+             return Err(AppError::Exchange(format!("Binance error: {}", error_text)));
+        }
+
+        let account: BinanceAccountResponse = response.json().await?;
+
+        let balance = account.balances.into_iter().find(|b| b.asset == currency).ok_or_else(|| {
+            AppError::Exchange(format!("Currency {} not found in account balances", currency))
+        })?;
+
+        let free: Decimal = balance.free.parse().unwrap_or(Decimal::ZERO);
+        let locked: Decimal = balance.locked.parse().unwrap_or(Decimal::ZERO);
+
+        Ok(Balance {
+            currency: currency.to_string(),
+            free,
+            used: locked,
+            total: free + locked,
+        })
     }
 
     async fn fetch_positions(&self) -> Result<Vec<Position>> {
