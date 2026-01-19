@@ -307,6 +307,10 @@ impl TickDataRepository {
             }
         }
 
+        if prices.is_empty() && !symbols.is_empty() {
+            warn!("Cache miss for all symbols in batch request (count: {})", symbols.len());
+        }
+
         // Get remaining symbols from database
         let missing_symbols: Vec<String> = symbols
             .iter()
