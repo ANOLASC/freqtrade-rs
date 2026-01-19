@@ -155,6 +155,8 @@ impl TradingBot {
                         }
                     }
                 }
+            } else {
+                eprintln!("Sell signals found for {} but no open trade exists", pair);
             }
         }
 
