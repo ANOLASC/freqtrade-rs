@@ -1,12 +1,11 @@
 # freqtrade-rs
 
-[![codecov](https://codecov.io/gh/ANOLASC/freqtrade-rs/graph/badge.svg)](https://codecov.io/gh/ANOLASC/freqtrade-rs)
-![Freqtrade-rs Logo](https://img.shields.io/badge/freqtrade-rs/freqtrade-rs)
-![Tauri](https://img.shields.io/badge/Tauri/Tauri-black)
-![Rust](https://img.shields.io/badge/Rust/rust-1.70+?style=flat-square&logo=rust)
-![React](https://img.shields.io/badge/React/react-19.1.0?style=flat-square&logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript/5.8?style=flat-square&logo=typescript)
-![TailwindCSS](https://img.shields.io/badge/Tailwindcss/%238832?style=flat-square&logo=tailwindcss)
+[![codecov](https://codecov.io/gh/ANOLASC/freqtrade-rs/graph/badge.svg?token=b4jDXLLteF)](https://codecov.io/gh/ANOLASC/freqtrade-rs)
+[![Rust](https://img.shields.io/badge/Rust-1.70+-black?logo=rust&style=flat-square)](https://www.rust-lang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-2-black?logo=tauri&style=flat-square)](https://tauri.app/)
+[![React](https://img.shields.io/badge/React-19.1.0-black?logo=react&style=flat-square)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-black?logo=typescript&style=flat-square)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 
 一个用 Rust 和 Tauri 构建的现代化加密货币交易机器人。
 
