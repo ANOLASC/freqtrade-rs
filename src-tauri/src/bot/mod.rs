@@ -228,6 +228,7 @@ impl TradingBot {
                             };
                             if let Err(e) = self.repository.create_trade(&trade).await {
                                 eprintln!("Failed to save trade for {}: {}", pair, e);
+                                return Err(e);
                             }
                         }
                         Err(e) => {
