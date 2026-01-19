@@ -22,8 +22,6 @@ jobs:
   rust-audit:
     name: Rust Dependency Audit
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -51,25 +49,10 @@ jobs:
         working-directory: ./src-tauri
         run: cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0001 --ignore RUSTSEC-2026-0002
 
-      - name: Report vulnerabilities
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: 'Security Vulnerability Detected',
-              body: 'A security vulnerability was detected in the dependencies. Please review the CI logs.',
-              labels: ['security', 'bug']
-            })
-
   # npm/pnpm 安全审计
   node-audit:
     name: Node.js Dependency Audit
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -102,19 +85,6 @@ jobs:
       - name: Run security audit
         working-directory: ./src
         run: pnpm audit --prod --level high
-
-      - name: Report vulnerabilities
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: 'Node.js Security Vulnerability Detected',
-              body: 'A security vulnerability was detected in the npm dependencies. Please review the CI logs.',
-              labels: ['security', 'bug']
-              })
 
   # 依赖漏洞检查报告
   dependency-review:
