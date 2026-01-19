@@ -294,13 +294,24 @@ impl TickDataRepository {
 
         let mut prices = HashMap::new();
 
-        // Try to get from cache first
-        for symbol in symbols {
-            if let Ok(cached_ticks) = self.cache.get_recent_ticks(symbol, 1).await {
+        // Try to get from cache first (concurrently)
+        let futures = symbols.iter().map(|symbol| async move {
+            let result = self.cache.get_recent_ticks(symbol, 1).await;
+            (symbol, result)
+        });
+
+        let results = join_all(futures).await;
+
+        for (symbol, result) in results {
+            if let Ok(cached_ticks) = result {
                 if let Some(latest_tick) = cached_ticks.first() {
                     prices.insert(symbol.clone(), latest_tick.price);
                 }
             }
+        }
+
+        if prices.is_empty() && !symbols.is_empty() {
+            warn!("Cache miss for all symbols in batch request (count: {})", symbols.len());
         }
 
         // Get remaining symbols from database
