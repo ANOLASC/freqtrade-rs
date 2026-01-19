@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::types::*;
+use chrono::Utc;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -101,21 +102,59 @@ impl TradingBot {
 
         // 处理卖信号
         let sell_signals = self.strategy.populate_sell_trend(&klines).await?;
-        if !sell_signals.is_empty() && !open_trades.is_empty() {
-            eprintln!("Got {} sell signals", sell_signals.len());
-            // 执行卖出逻辑（简化版，实际实现需要根据信号确定卖哪对）
-            if let Some(risk_mgr) = &self.risk_manager
-                && let Some(stop_reason) = risk_mgr.check_pair_stop(pair).await?
-            {
-                eprintln!("Pair stop triggered for {}: {}", pair, stop_reason.reason);
-                return Ok(());
-            }
-            // 执行卖出（dry_run 模式下只记录）
-            if self.config.dry_run {
-                eprintln!("[DRY RUN] Would sell {}", pair);
-            } else {
-                // TODO: 实现实际的卖出逻辑
-                eprintln!("Sell signal for {}", pair);
+        if !sell_signals.is_empty() {
+            // Find trade for current pair
+            if let Some(trade) = open_trades.iter().find(|t| t.pair == pair) {
+                eprintln!("Got {} sell signals for {}", sell_signals.len(), pair);
+                // 执行卖出逻辑
+                if let Some(risk_mgr) = &self.risk_manager
+                    && let Some(stop_reason) = risk_mgr.check_pair_stop(pair).await?
+                {
+                    eprintln!("Pair stop triggered for {}: {}", pair, stop_reason.reason);
+                    return Ok(());
+                }
+                // 执行卖出（dry_run 模式下只记录）
+                if self.config.dry_run {
+                    eprintln!("[DRY RUN] Would sell {}", pair);
+                } else {
+                    eprintln!("Sell signal for {}", pair);
+                    let order_req = OrderRequest {
+                        symbol: pair.to_string(),
+                        side: TradeSide::Sell,
+                        order_type: OrderType::Market,
+                        amount: trade.amount,
+                        price: None,
+                    };
+
+                    match self.exchange.create_order(order_req).await {
+                        Ok(order) => {
+                            eprintln!("Sell order executed: {:?}", order);
+                            // Update Trade
+                            // Use order price if available, otherwise fallback to current candle close
+                            let close_price = order.price.unwrap_or(klines.last().unwrap().close);
+
+                            let mut updated_trade = trade.clone();
+                            updated_trade.is_open = false;
+                            updated_trade.close_rate = Some(close_price);
+                            updated_trade.close_date = Some(Utc::now());
+                            updated_trade.exit_reason = Some(ExitType::Signal);
+
+                            // Calculate profit
+                            let profit_abs = (close_price - trade.open_rate) * trade.amount;
+                            let profit_ratio = (close_price - trade.open_rate) / trade.open_rate;
+
+                            updated_trade.profit_abs = Some(profit_abs);
+                            updated_trade.profit_ratio = Some(profit_ratio);
+
+                            if let Err(e) = self.repository.update_trade(&updated_trade).await {
+                                eprintln!("Failed to update trade in DB: {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to execute sell order: {}", e);
+                        }
+                    }
+                }
             }
         }
 
