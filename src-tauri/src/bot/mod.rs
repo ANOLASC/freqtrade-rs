@@ -93,6 +93,49 @@ impl TradingBot {
         *self.status.read().await
     }
 
+    async fn execute_sell_order(&self, pair: &str, trade: &Trade, klines: &[OHLCV]) -> Result<()> {
+        eprintln!("Sell signal for {}", pair);
+        let order_req = OrderRequest {
+            symbol: pair.to_string(),
+            side: TradeSide::Sell,
+            order_type: OrderType::Market,
+            amount: trade.amount,
+            price: None,
+        };
+
+        match self.exchange.create_order(order_req).await {
+            Ok(order) => {
+                eprintln!("Sell order executed: {:?}", order);
+                // Update Trade
+                // Use order price if available, otherwise fallback to current candle close
+                let close_price = order
+                    .price
+                    .unwrap_or_else(|| klines.last().map(|k| k.close).unwrap_or(trade.open_rate));
+
+                let mut updated_trade = trade.clone();
+                updated_trade.is_open = false;
+                updated_trade.close_rate = Some(close_price);
+                updated_trade.close_date = Some(Utc::now());
+                updated_trade.exit_reason = Some(ExitType::Signal);
+
+                // Calculate profit
+                let profit_abs = (close_price - trade.open_rate) * trade.amount;
+                let profit_ratio = (close_price - trade.open_rate) / trade.open_rate;
+
+                updated_trade.profit_abs = Some(profit_abs);
+                updated_trade.profit_ratio = Some(profit_ratio);
+
+                if let Err(e) = self.repository.update_trade(&updated_trade).await {
+                    eprintln!("Failed to update trade in DB: {}", e);
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to execute sell order: {}", e);
+            }
+        }
+        Ok(())
+    }
+
     async fn process_cycle(&self, pair: &str, timeframe: &str) -> Result<()> {
         // 获取 K线数据
         let klines = self.exchange.fetch_ohlcv(pair, timeframe, 500).await?;
@@ -117,42 +160,8 @@ impl TradingBot {
                 if self.config.dry_run {
                     eprintln!("[DRY RUN] Would sell {}", pair);
                 } else {
-                    eprintln!("Sell signal for {}", pair);
-                    let order_req = OrderRequest {
-                        symbol: pair.to_string(),
-                        side: TradeSide::Sell,
-                        order_type: OrderType::Market,
-                        amount: trade.amount,
-                        price: None,
-                    };
-
-                    match self.exchange.create_order(order_req).await {
-                        Ok(order) => {
-                            eprintln!("Sell order executed: {:?}", order);
-                            // Update Trade
-                            // Use order price if available, otherwise fallback to current candle close
-                            let close_price = order.price.unwrap_or(klines.last().unwrap().close);
-
-                            let mut updated_trade = trade.clone();
-                            updated_trade.is_open = false;
-                            updated_trade.close_rate = Some(close_price);
-                            updated_trade.close_date = Some(Utc::now());
-                            updated_trade.exit_reason = Some(ExitType::Signal);
-
-                            // Calculate profit
-                            let profit_abs = (close_price - trade.open_rate) * trade.amount;
-                            let profit_ratio = (close_price - trade.open_rate) / trade.open_rate;
-
-                            updated_trade.profit_abs = Some(profit_abs);
-                            updated_trade.profit_ratio = Some(profit_ratio);
-
-                            if let Err(e) = self.repository.update_trade(&updated_trade).await {
-                                eprintln!("Failed to update trade in DB: {}", e);
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to execute sell order: {}", e);
-                        }
+                    if let Err(e) = self.execute_sell_order(pair, trade, &klines).await {
+                        eprintln!("Error executing sell order: {}", e);
                     }
                 }
             } else {
