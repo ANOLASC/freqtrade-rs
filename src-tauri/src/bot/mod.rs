@@ -1,7 +1,9 @@
 use crate::error::Result;
 use crate::types::*;
 use chrono::Utc;
+use rust_decimal::Decimal;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct TradingBot {
@@ -176,12 +178,80 @@ impl TradingBot {
                 if self.config.dry_run {
                     eprintln!("[DRY RUN] Would buy {}", pair);
                 } else {
-                    // TODO: 实现实际的买入逻辑
                     eprintln!("Buy signal for {}", pair);
+                    // Calculate buy amount
+                    let close_price = klines.last().unwrap().close;
+                    if let Some(stake_amount) = Decimal::from_f64_retain(self.config.stake_amount) {
+                        let amount = stake_amount / close_price;
+
+                        let order_req = OrderRequest {
+                            symbol: pair.to_string(),
+                            side: TradeSide::Buy,
+                            order_type: OrderType::Market,
+                            amount,
+                            price: None,
+                        };
+
+                        match self.exchange.create_order(order_req).await {
+                            Ok(order) => {
+                                eprintln!("Buy order executed: {:?}", order);
+                                // Create Trade
+                                let trade = Trade {
+                                    id: Uuid::new_v4(),
+                                    pair: pair.to_string(),
+                                    is_open: true,
+                                    exchange: self.exchange.get_name().to_string(),
+                                    open_rate: order.price.unwrap_or(close_price),
+                                    open_date: Utc::now(),
+                                    close_rate: None,
+                                    close_date: None,
+                                    amount: order.amount,
+                                    stake_amount: order.amount * order.price.unwrap_or(close_price),
+                                    strategy: self.strategy.name().to_string(),
+                                    timeframe: parse_timeframe(timeframe),
+                                    stop_loss: None,
+                                    take_profit: None,
+                                    exit_reason: None,
+                                    profit_abs: None,
+                                    profit_ratio: None,
+                                };
+
+                                if let Err(e) = self.repository.create_trade(&trade).await {
+                                    eprintln!("Failed to save trade to DB: {}", e);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to execute buy order: {}", e);
+                            }
+                        }
+                    } else {
+                        eprintln!("Failed to convert stake_amount to Decimal");
+                    }
                 }
             }
         }
 
         Ok(())
+    }
+}
+
+fn parse_timeframe(timeframe: &str) -> Timeframe {
+    match timeframe {
+        "1m" => Timeframe::OneMinute,
+        "3m" => Timeframe::ThreeMinutes,
+        "5m" => Timeframe::FiveMinutes,
+        "15m" => Timeframe::FifteenMinutes,
+        "30m" => Timeframe::ThirtyMinutes,
+        "1h" => Timeframe::OneHour,
+        "2h" => Timeframe::TwoHours,
+        "4h" => Timeframe::FourHours,
+        "6h" => Timeframe::SixHours,
+        "8h" => Timeframe::EightHours,
+        "12h" => Timeframe::TwelveHours,
+        "1d" => Timeframe::OneDay,
+        "3d" => Timeframe::ThreeDays,
+        "1w" => Timeframe::OneWeek,
+        "1M" => Timeframe::OneMonth,
+        _ => Timeframe::OneHour,
     }
 }
