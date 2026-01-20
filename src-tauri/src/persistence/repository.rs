@@ -1,13 +1,40 @@
 use crate::error::{AppError, Result};
 use crate::types::*;
-use chrono::{DateTime, Utc};
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
+use chrono::{DateTime, Duration, Utc};
 use rust_decimal::Decimal;
-use sqlx::sqlite::SqlitePool;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sqlx::Row;
+use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// Parse timeframe string to Duration
+/// Returns error for unrecognized timeframes to prevent silent data corruption
+fn parse_timeframe_to_duration(timeframe: &str) -> Result<Duration> {
+    let tf = timeframe.trim().to_lowercase();
+    match tf.as_str() {
+        "1m" | "1 minute" => Ok(Duration::minutes(1)),
+        "3m" | "3 minutes" => Ok(Duration::minutes(3)),
+        "5m" | "5 minutes" => Ok(Duration::minutes(5)),
+        "15m" | "15 minutes" => Ok(Duration::minutes(15)),
+        "30m" | "30 minutes" => Ok(Duration::minutes(30)),
+        "1h" | "1 hour" => Ok(Duration::hours(1)),
+        "2h" | "2 hours" => Ok(Duration::hours(2)),
+        "4h" | "4 hours" => Ok(Duration::hours(4)),
+        "6h" | "6 hours" => Ok(Duration::hours(6)),
+        "8h" | "8 hours" => Ok(Duration::hours(8)),
+        "12h" | "12 hours" => Ok(Duration::hours(12)),
+        "1d" | "1 day" => Ok(Duration::days(1)),
+        "3d" | "3 days" => Ok(Duration::days(3)),
+        "1w" | "1 week" => Ok(Duration::weeks(1)),
+        "1M" | "1 month" => Ok(Duration::days(30)),
+        _ => Err(crate::error::AppError::Parse(format!(
+            "Invalid timeframe: {}",
+            timeframe
+        ))),
+    }
+}
 
 #[derive(Clone)]
 pub struct Repository {
@@ -120,7 +147,7 @@ impl Repository {
             let profit_opt: Option<f64> = row.get("profit_abs");
             if let Some(profit_f64) = profit_opt {
                 if let Some(profit) = Decimal::from_f64(profit_f64) {
-                     current_balance += profit;
+                    current_balance += profit;
                 }
             }
 
@@ -128,7 +155,7 @@ impl Repository {
                 peak_balance = current_balance;
             }
             let drawdown = (peak_balance - current_balance) / peak_balance * Decimal::from(100_i64);
-             if drawdown > Decimal::try_from(max_drawdown).unwrap_or(Decimal::ZERO) {
+            if drawdown > Decimal::try_from(max_drawdown).unwrap_or(Decimal::ZERO) {
                 max_drawdown = drawdown.to_f64().unwrap_or(0.0);
             }
         }
@@ -154,17 +181,22 @@ impl Repository {
     }
 
     pub async fn save_klines(&self, pair: &str, timeframe: &str, klines: &[OHLCV]) -> Result<()> {
+        // Early return for empty klines to avoid unnecessary transaction overhead
+        if klines.is_empty() {
+            return Ok(());
+        }
+
+        let timeframe_duration = parse_timeframe_to_duration(timeframe)?;
         let mut tx = self.pool.begin().await?;
 
-        // Split into chunks to avoid SQLite variable limit.
-        // Standard SQLite limit is 999 variables, modern builds often 32766.
-        // 9 parameters per row. Chunk size of 100 (900 vars) is safe for all builds.
+        // Split into chunks to avoid SQLite variable limit
         for chunk in klines.chunks(100) {
             let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
-                "INSERT OR REPLACE INTO klines (pair, timeframe, open_time, open, high, low, close, volume, close_time) "
+                "INSERT OR REPLACE INTO klines (pair, timeframe, open_time, open, high, low, close, volume, close_time) ",
             );
 
             query_builder.push_values(chunk, |mut b, kline| {
+                let close_time = kline.timestamp + timeframe_duration;
                 b.push_bind(pair)
                     .push_bind(timeframe)
                     .push_bind(kline.timestamp.to_rfc3339())
@@ -173,9 +205,7 @@ impl Repository {
                     .push_bind(kline.low.to_string())
                     .push_bind(kline.close.to_string())
                     .push_bind(kline.volume.to_string())
-                    // Using open_time as close_time for now since OHLCV doesn't track end time
-                    // and original code (before fix) was broken/ambiguous.
-                    .push_bind(kline.timestamp.to_rfc3339());
+                    .push_bind(close_time.to_rfc3339());
             });
 
             query_builder.build().execute(&mut *tx).await?;
@@ -238,9 +268,7 @@ impl Repository {
             let f: f64 = row
                 .try_get(col)
                 .map_err(|e| AppError::Database(format!("Failed to read {}: {}", col, e)))?;
-            Decimal::from_f64(f).ok_or_else(|| {
-                AppError::Parse(format!("Invalid float for decimal in {}", col))
-            })
+            Decimal::from_f64(f).ok_or_else(|| AppError::Parse(format!("Invalid float for decimal in {}", col)))
         }
     }
 
@@ -260,8 +288,7 @@ impl Repository {
 
     fn row_to_trade(&self, row: &sqlx::sqlite::SqliteRow) -> Result<Trade> {
         Ok(Trade {
-            id: Uuid::parse_str(row.get("id"))
-                .map_err(|e| AppError::Parse(format!("Invalid UUID: {}", e)))?,
+            id: Uuid::parse_str(row.get("id")).map_err(|e| AppError::Parse(format!("Invalid UUID: {}", e)))?,
             pair: row.get("pair"),
             is_open: row.get::<i32, _>("is_open") != 0,
             exchange: row.get("exchange"),
