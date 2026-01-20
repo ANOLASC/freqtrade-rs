@@ -1,7 +1,9 @@
 use crate::error::Result;
 use crate::types::*;
 use chrono::Utc;
+use rust_decimal::Decimal;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct TradingBot {
@@ -164,20 +166,119 @@ impl TradingBot {
         if open_trades.len() < self.config.max_open_trades {
             let buy_signals = self.strategy.populate_buy_trend(&klines).await?;
             if !buy_signals.is_empty() {
-                eprintln!("Got {} buy signals", buy_signals.len());
-                // 执行买入（简化版，实际实现需要根据信号确定买哪对）
+                eprintln!("Got {} buy signals for {}", buy_signals.len(), pair);
+
+                // 检查交易对是否已有持仓
+                if open_trades.iter().any(|t| t.pair == pair) {
+                    eprintln!("Already have open position for {}", pair);
+                    return Ok(());
+                }
+
+                // 检查风控
                 if let Some(risk_mgr) = &self.risk_manager
                     && let Some(stop_reason) = risk_mgr.check_pair_stop(pair).await?
                 {
                     eprintln!("Pair stop triggered for {}: {}", pair, stop_reason.reason);
                     return Ok(());
                 }
-                // 执行买入（dry_run 模式下只记录）
-                if self.config.dry_run {
-                    eprintln!("[DRY RUN] Would buy {}", pair);
+
+                // 计算买入金额和数量
+                let current_price = klines.last().unwrap().close;
+                let stake_amount_f64 = self.config.stake_amount;
+                let stake_amount_decimal = Decimal::try_from(stake_amount_f64).unwrap_or(Decimal::from(0));
+
+                let amount = if stake_amount_decimal > Decimal::ZERO {
+                    stake_amount_decimal / current_price
                 } else {
-                    // TODO: 实现实际的买入逻辑
-                    eprintln!("Buy signal for {}", pair);
+                    return Err(crate::error::AppError::InvalidInput("Invalid stake amount".to_string()));
+                };
+
+                // dry_run 模式
+                if self.config.dry_run {
+                    eprintln!(
+                        "[DRY RUN] Would buy {} - Amount: {} @ Price: {}",
+                        pair, amount, current_price
+                    );
+
+                    // 创建模拟交易记录
+                    let trade = Trade {
+                        id: Uuid::new_v4(),
+                        pair: pair.to_string(),
+                        is_open: true,
+                        exchange: self.exchange.get_name().to_string(),
+                        open_rate: current_price,
+                        open_date: Utc::now(),
+                        close_rate: None,
+                        close_date: None,
+                        amount,
+                        stake_amount: stake_amount_decimal,
+                        strategy: "SimpleStrategy".to_string(),
+                        timeframe: Timeframe::OneHour,
+                        stop_loss: None,
+                        take_profit: None,
+                        exit_reason: None,
+                        profit_abs: None,
+                        profit_ratio: None,
+                    };
+
+                    if let Err(e) = self.repository.create_trade(&trade).await {
+                        eprintln!("Failed to create trade in DB: {}", e);
+                    }
+
+                    return Ok(());
+                }
+
+                // 实盘模式 - 执行买入
+                eprintln!(
+                    "Executing buy for {} - Amount: {} @ Price: {}",
+                    pair, amount, current_price
+                );
+                let order_req = OrderRequest {
+                    symbol: pair.to_string(),
+                    side: TradeSide::Buy,
+                    order_type: OrderType::Market,
+                    amount,
+                    price: None,
+                };
+
+                match self.exchange.create_order(order_req).await {
+                    Ok(order) => {
+                        eprintln!("Buy order executed: {:?}", order);
+
+                        // 计算实际成交价格
+                        let avg_price = order
+                            .price
+                            .unwrap_or_else(|| order.filled * current_price / order.amount);
+
+                        // 创建交易记录
+                        let trade = Trade {
+                            id: Uuid::new_v4(),
+                            pair: pair.to_string(),
+                            is_open: true,
+                            exchange: self.exchange.get_name().to_string(),
+                            open_rate: avg_price,
+                            open_date: Utc::now(),
+                            close_rate: None,
+                            close_date: None,
+                            amount: order.filled,
+                            stake_amount: stake_amount_decimal,
+                            strategy: "SimpleStrategy".to_string(),
+                            timeframe: Timeframe::OneHour,
+                            stop_loss: None,
+                            take_profit: None,
+                            exit_reason: None,
+                            profit_abs: None,
+                            profit_ratio: None,
+                        };
+
+                        if let Err(e) = self.repository.create_trade(&trade).await {
+                            eprintln!("Failed to create trade in DB: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to execute buy order: {}", e);
+                        return Err(crate::error::AppError::Exchange(format!("Buy order failed: {}", e)));
+                    }
                 }
             }
         }
