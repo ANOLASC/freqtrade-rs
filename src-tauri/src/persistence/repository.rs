@@ -155,13 +155,32 @@ impl Repository {
 
     pub async fn save_klines(&self, pair: &str, timeframe: &str, klines: &[OHLCV]) -> Result<()> {
         let mut tx = self.pool.begin().await?;
-        for kline in klines {
-            sqlx::query("INSERT OR REPLACE INTO klines (pair, timeframe, open_time, open, high, low, close, volume, close_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-                .bind(pair).bind(timeframe).bind(kline.timestamp.to_rfc3339())
-                .bind(kline.open.to_string()).bind(kline.high.to_string()).bind(kline.low.to_string())
-                .bind(kline.close.to_string()).bind(kline.volume.to_string())
-                .execute(&mut *tx).await?;
+
+        // Split into chunks to avoid SQLite variable limit.
+        // Standard SQLite limit is 999 variables, modern builds often 32766.
+        // 9 parameters per row. Chunk size of 100 (900 vars) is safe for all builds.
+        for chunk in klines.chunks(100) {
+            let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
+                "INSERT OR REPLACE INTO klines (pair, timeframe, open_time, open, high, low, close, volume, close_time) "
+            );
+
+            query_builder.push_values(chunk, |mut b, kline| {
+                b.push_bind(pair)
+                    .push_bind(timeframe)
+                    .push_bind(kline.timestamp.to_rfc3339())
+                    .push_bind(kline.open.to_string())
+                    .push_bind(kline.high.to_string())
+                    .push_bind(kline.low.to_string())
+                    .push_bind(kline.close.to_string())
+                    .push_bind(kline.volume.to_string())
+                    // Using open_time as close_time for now since OHLCV doesn't track end time
+                    // and original code (before fix) was broken/ambiguous.
+                    .push_bind(kline.timestamp.to_rfc3339());
+            });
+
+            query_builder.build().execute(&mut *tx).await?;
         }
+
         tx.commit().await?;
         Ok(())
     }
