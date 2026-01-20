@@ -29,12 +29,12 @@ impl Default for RetryConfig {
 }
 
 /// Execute an async operation with retry logic
-/// 
+///
 /// # Arguments
 /// * `operation` - The async operation to execute
 /// * `config` - Retry configuration
 /// * `is_retryable` - Function to determine if an error is retryable
-/// 
+///
 /// # Returns
 /// Result of the operation
 pub async fn with_retry<T, F, Fut, E>(
@@ -57,7 +57,7 @@ where
                     return Err(e);
                 }
                 last_error = Some(e);
-                
+
                 // Check for transient errors if configured
                 if !config.retry_on_transient {
                     return Err(last_error.expect("Last error should be Some"));
@@ -71,7 +71,7 @@ where
                 );
 
                 sleep(Duration::from_millis(delay_ms)).await;
-                
+
                 // Exponential backoff with cap
                 delay_ms = ((delay_ms as f64) * config.backoff_multiplier) as u64;
                 delay_ms = delay_ms.min(config.max_delay_ms);
@@ -79,7 +79,10 @@ where
         }
     }
 
-    Err(last_error.expect("Last error should be Some"))
+    // All retries exhausted - return the last error
+    // This is only reachable if max_retries is 0 and first attempt fails with retryable error
+    // but retry_on_transient is false
+    Err(last_error.expect("Loop must have stored an error"))
 }
 
 /// Circuit breaker state
@@ -110,30 +113,40 @@ pub struct CircuitBreaker {
 
 impl CircuitBreaker {
     /// Create a new circuit breaker
-    pub fn new(failure_threshold: u32, timeout_secs: u64) -> Self {
+    ///
+    /// # Arguments
+    /// * `failure_threshold` - Number of failures before opening the circuit
+    /// * `success_threshold` - Number of successes in half-open state before closing
+    /// * `timeout_secs` - Timeout before trying half-open state (seconds)
+    pub fn new(failure_threshold: u32, success_threshold: u32, timeout_secs: u64) -> Self {
         Self {
             state: tokio::sync::RwLock::new(CircuitBreakerState::Closed),
             failure_count: tokio::sync::RwLock::new(0),
             success_count: tokio::sync::RwLock::new(0),
             failure_threshold,
-            success_threshold: 3,
+            success_threshold,
             timeout_secs,
             last_failure: tokio::sync::RwLock::new(None),
         }
     }
 
     /// Check if the operation should be allowed
+    ///
+    /// This method uses a write lock to atomically check and update state,
+    /// preventing TOCTOU race conditions.
     pub async fn can_proceed(&self) -> bool {
-        let state = *self.state.read().await;
-        match state {
+        let mut state = self.state.write().await;
+        match *state {
             CircuitBreakerState::Closed => true,
             CircuitBreakerState::HalfOpen => true,
             CircuitBreakerState::Open => {
                 // Check if timeout has elapsed
-                if let Some(last) = *self.last_failure.read().await {
+                let last_failure = self.last_failure.read().await;
+                if let Some(last) = *last_failure {
                     if last.elapsed().as_secs() >= self.timeout_secs {
-                        // Transition to half-open
-                        *self.state.write().await = CircuitBreakerState::HalfOpen;
+                        // Transition to half-open atomically
+                        *state = CircuitBreakerState::HalfOpen;
+                        drop(last_failure); // Release read lock before acquiring write
                         *self.success_count.write().await = 0;
                         true
                     } else {
