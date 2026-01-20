@@ -20,13 +20,66 @@ struct BinanceOrderResponse {
     orig_qty: String,
     #[serde(rename = "executedQty")]
     executed_qty: String,
+    #[serde(rename = "cummulativeQuoteQty")]
+    cummulative_quote_qty: String,
     status: String,
+    #[serde(rename = "side")]
+    side: String,
+    #[serde(rename = "type")]
+    order_type: String,
+    #[serde(rename = "price")]
+    price: String,
+    #[serde(rename = "updateTime")]
+    #[serde(default)]
+    update_time: i64,
+    #[serde(rename = "avgPrice")]
+    #[serde(default)]
+    avg_price: String,
+}
+
+#[derive(Deserialize)]
+struct BinanceTradeResponse {
+    #[serde(rename = "orderId")]
+    order_id: i64,
+    #[serde(rename = "tradeId")]
+    trade_id: i64,
+    #[serde(rename = "symbol")]
+    symbol: String,
+    #[serde(rename = "price")]
+    price: String,
+    #[serde(rename = "qty")]
+    qty: String,
+    #[serde(rename = "commission")]
+    commission: String,
+    #[serde(rename = "commissionAsset")]
+    commission_asset: String,
+    #[serde(rename = "time")]
+    time: i64,
+    #[serde(rename = "isBuyer")]
+    is_buyer: bool,
+}
+
+#[derive(Deserialize)]
+struct BinanceAccountInfo {
+    #[serde(rename = "makerCommission")]
+    maker_commission: i64,
+    #[serde(rename = "takerCommission")]
+    taker_commission: i64,
+    balances: Vec<BalanceInfo>,
+}
+
+#[derive(Deserialize)]
+struct BalanceInfo {
+    asset: String,
+    free: String,
+    locked: String,
 }
 
 pub struct BinanceExchange {
     _api_key: String,
     _api_secret: String,
     base_url: String,
+    futures_base_url: String,
     client: reqwest::Client,
 }
 
@@ -36,13 +89,15 @@ impl BinanceExchange {
             _api_key: api_key,
             _api_secret: api_secret,
             base_url: "https://api.binance.com".to_string(),
+            futures_base_url: "https://fapi.binance.com".to_string(),
             client: reqwest::Client::new(),
         }
     }
 
     #[cfg(test)]
     pub fn with_base_url(mut self, url: String) -> Self {
-        self.base_url = url;
+        self.base_url = url.clone();
+        self.futures_base_url = url;
         self
     }
 
@@ -130,15 +185,124 @@ impl Exchange for BinanceExchange {
     }
 
     async fn fetch_balance(&self) -> Result<Balance> {
-        Err(AppError::NotImplemented(
-            "fetch_balance not implemented yet".to_string(),
-        ))
+        let query = String::new();
+        let signed_query = self.sign_query(query);
+        let url = format!("{}/api/v3/account?{}", self.get_base_url(), signed_query);
+
+        let response = self
+            .client
+            .get(&url)
+            .header("X-MBX-APIKEY", &self._api_key)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Exchange(format!("Binance error: {}", error_text)));
+        }
+
+        let data: BinanceAccountInfo = response.json().await?;
+
+        // Find USDT balance
+        for balance in &data.balances {
+            if balance.asset == "USDT" {
+                let free = balance.free.parse().unwrap_or(Decimal::ZERO);
+                let locked = balance.locked.parse().unwrap_or(Decimal::ZERO);
+                let total = free + locked;
+                return Ok(Balance {
+                    currency: "USDT".to_string(),
+                    total,
+                    free,
+                    used: locked,
+                });
+            }
+        }
+
+        Ok(Balance {
+            currency: "USDT".to_string(),
+            total: Decimal::ZERO,
+            free: Decimal::ZERO,
+            used: Decimal::ZERO,
+        })
     }
 
     async fn fetch_positions(&self) -> Result<Vec<Position>> {
-        Err(AppError::NotImplemented(
-            "fetch_positions not implemented yet".to_string(),
-        ))
+        let query = String::new();
+        let signed_query = self.sign_query(query);
+        // Use Futures API endpoint for position data
+        let url = format!("{}/fapi/v2/account?{}", self.futures_base_url, signed_query);
+
+        let response = self
+            .client
+            .get(&url)
+            .header("X-MBX-APIKEY", &self._api_key)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Exchange(format!("Binance Futures error: {}", error_text)));
+        }
+
+        let data: serde_json::Value = response.json().await?;
+        let positions_json = &data["positions"];
+
+        let mut positions = Vec::new();
+        if let Some(positions_arr) = positions_json.as_array() {
+            for pos in positions_arr {
+                let symbol = pos["symbol"].as_str().unwrap_or("").to_string();
+                let position_amt: Decimal = pos["positionAmt"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+                let entry_price: Decimal = pos["entryPrice"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+                let mark_price: Decimal = pos["markPrice"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+                let unrealized_pnl: Decimal = pos["unrealizedProfit"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+
+                // Only include non-zero positions
+                if position_amt != Decimal::ZERO {
+                    let side = if position_amt > Decimal::ZERO {
+                        TradeSide::Buy
+                    } else {
+                        TradeSide::Sell
+                    };
+                    let size = position_amt.abs();
+
+                    // Calculate percentage: (unrealized_pnl / position_value) * 100
+                    let position_value = size * entry_price;
+                    let percentage = if position_value > Decimal::ZERO {
+                        (unrealized_pnl / position_value) * Decimal::from(100)
+                    } else {
+                        Decimal::ZERO
+                    };
+
+                    positions.push(Position {
+                        symbol,
+                        side,
+                        size,
+                        entry_price,
+                        mark_price,
+                        unrealized_pnl,
+                        percentage,
+                    });
+                }
+            }
+        }
+
+        Ok(positions)
     }
 
     async fn create_order(&self, order: OrderRequest) -> Result<Order> {
@@ -217,16 +381,163 @@ impl Exchange for BinanceExchange {
         })
     }
 
-    async fn cancel_order(&self, _order_id: &str) -> Result<()> {
-        Err(AppError::NotImplemented("cancel_order not implemented yet".to_string()))
+    async fn cancel_order(&self, order_id: &str) -> Result<()> {
+        let query = format!("orderId={}", order_id);
+        let signed_query = self.sign_query(query);
+        let url = format!("{}/api/v3/order?{}", self.get_base_url(), signed_query);
+
+        let response = self
+            .client
+            .delete(&url)
+            .header("X-MBX-APIKEY", &self._api_key)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Exchange(format!("Failed to cancel order: {}", error_text)));
+        }
+
+        Ok(())
     }
 
-    async fn fetch_order(&self, _order_id: &str) -> Result<Order> {
-        Err(AppError::NotImplemented("fetch_order not implemented yet".to_string()))
+    async fn fetch_order(&self, order_id: &str) -> Result<Order> {
+        let query = format!("orderId={}", order_id);
+        let signed_query = self.sign_query(query);
+        let url = format!("{}/api/v3/order?{}", self.get_base_url(), signed_query);
+
+        let response = self
+            .client
+            .get(&url)
+            .header("X-MBX-APIKEY", &self._api_key)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Exchange(format!("Failed to fetch order: {}", error_text)));
+        }
+
+        let data: BinanceOrderResponse = response.json().await?;
+
+        let status = match data.status.as_str() {
+            "NEW" => OrderStatus::New,
+            "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
+            "FILLED" => OrderStatus::Filled,
+            "CANCELED" => OrderStatus::Canceled,
+            "REJECTED" => OrderStatus::Rejected,
+            "EXPIRED" => OrderStatus::Expired,
+            _ => OrderStatus::New,
+        };
+
+        let side = match data.side.as_str() {
+            "BUY" => TradeSide::Buy,
+            "SELL" => TradeSide::Sell,
+            _ => TradeSide::Buy,
+        };
+
+        let order_type = match data.order_type.as_str() {
+            "MARKET" => OrderType::Market,
+            "LIMIT" => OrderType::Limit,
+            "STOP_LOSS_LIMIT" => OrderType::StopLimit,
+            "STOP_LOSS" => OrderType::StopMarket,
+            _ => OrderType::Market,
+        };
+
+        let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
+        let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
+        let remaining = amount - filled;
+        let price = data.price.parse().unwrap_or(Decimal::ZERO);
+
+        let created_at = chrono::DateTime::from_timestamp(data.transact_time / 1000, 0).unwrap_or_else(Utc::now);
+        let updated_at = chrono::DateTime::from_timestamp(data.update_time / 1000, 0).unwrap_or_else(Utc::now);
+
+        Ok(Order {
+            id: data.order_id.to_string(),
+            symbol: data.symbol,
+            side,
+            order_type,
+            status,
+            price: Some(price),
+            amount,
+            filled,
+            remaining,
+            fee: None,
+            created_at,
+            updated_at,
+        })
     }
 
-    async fn fetch_orders(&self, _symbol: &str) -> Result<Vec<Order>> {
-        Err(AppError::NotImplemented("fetch_orders not implemented yet".to_string()))
+    async fn fetch_orders(&self, symbol: &str) -> Result<Vec<Order>> {
+        let query = format!("symbol={}", symbol);
+        let signed_query = self.sign_query(query);
+        let url = format!("{}/api/v3/allOrders?{}", self.get_base_url(), signed_query);
+
+        let response = self
+            .client
+            .get(&url)
+            .header("X-MBX-APIKEY", &self._api_key)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Exchange(format!("Failed to fetch orders: {}", error_text)));
+        }
+
+        let orders_data: Vec<BinanceOrderResponse> = response.json().await?;
+
+        let mut orders = Vec::new();
+        for data in orders_data {
+            let status = match data.status.as_str() {
+                "NEW" => OrderStatus::New,
+                "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
+                "FILLED" => OrderStatus::Filled,
+                "CANCELED" => OrderStatus::Canceled,
+                "REJECTED" => OrderStatus::Rejected,
+                "EXPIRED" => OrderStatus::Expired,
+                _ => OrderStatus::New,
+            };
+
+            let side = match data.side.as_str() {
+                "BUY" => TradeSide::Buy,
+                "SELL" => TradeSide::Sell,
+                _ => TradeSide::Buy,
+            };
+
+            let order_type = match data.order_type.as_str() {
+                "MARKET" => OrderType::Market,
+                "LIMIT" => OrderType::Limit,
+                "STOP_LOSS_LIMIT" => OrderType::StopLimit,
+                "STOP_LOSS" => OrderType::StopMarket,
+                _ => OrderType::Market,
+            };
+
+            let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
+            let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
+            let remaining = amount - filled;
+            let price = data.price.parse().unwrap_or(Decimal::ZERO);
+
+            let created_at = chrono::DateTime::from_timestamp(data.transact_time / 1000, 0).unwrap_or_else(Utc::now);
+            let updated_at = chrono::DateTime::from_timestamp(data.update_time / 1000, 0).unwrap_or_else(Utc::now);
+
+            orders.push(Order {
+                id: data.order_id.to_string(),
+                symbol: data.symbol,
+                side,
+                order_type,
+                status,
+                price: Some(price),
+                amount,
+                filled,
+                remaining,
+                fee: None,
+                created_at,
+                updated_at,
+            });
+        }
+
+        Ok(orders)
     }
 
     fn get_name(&self) -> &str {
