@@ -5,13 +5,13 @@
 mod bot_tests {
     use crate::bot::TradingBot;
     use crate::config::BotConfig;
-    use crate::persistence::Repository;
-    use crate::types::*;
     use crate::exchange::Exchange;
+    use crate::persistence::Repository;
     use crate::strategy::Strategy;
+    use crate::types::*;
+    use async_trait::async_trait;
     use rust_decimal::Decimal;
     use std::sync::Arc;
-    use async_trait::async_trait;
     use tokio::sync::RwLock;
 
     // --- Mock Exchange ---
@@ -105,8 +105,8 @@ mod bot_tests {
         }
 
         async fn fetch_order(&self, _order_id: &str) -> crate::error::Result<Order> {
-             // Return dummy order
-             Ok(Order {
+            // Return dummy order
+            Ok(Order {
                 id: "dummy".to_string(),
                 symbol: "BTC/USDT".to_string(),
                 side: TradeSide::Buy,
@@ -142,13 +142,21 @@ mod bot_tests {
         }
 
         async fn set_buy_signal(&self) {
-             let mut signals = self.buy_signals.write().await;
-             signals.push(Signal { index: 0, r#type: SignalType::Buy, strength: 1.0 });
+            let mut signals = self.buy_signals.write().await;
+            signals.push(Signal {
+                index: 0,
+                r#type: SignalType::Buy,
+                strength: 1.0,
+            });
         }
 
         async fn set_sell_signal(&self) {
-             let mut signals = self.sell_signals.write().await;
-             signals.push(Signal { index: 0, r#type: SignalType::Sell, strength: 1.0 });
+            let mut signals = self.sell_signals.write().await;
+            signals.push(Signal {
+                index: 0,
+                r#type: SignalType::Sell,
+                strength: 1.0,
+            });
         }
     }
 
@@ -167,7 +175,7 @@ mod bot_tests {
             Ok(self.buy_signals.read().await.clone())
         }
         async fn populate_sell_trend(&self, _data: &[OHLCV]) -> crate::error::Result<Vec<Signal>> {
-             Ok(self.sell_signals.read().await.clone())
+            Ok(self.sell_signals.read().await.clone())
         }
     }
 
@@ -209,16 +217,10 @@ mod bot_tests {
             stake_amount: 100.0,
             dry_run,
             process_only_new_candles: false,
-             ..Default::default()
+            ..Default::default()
         };
 
-        let bot = TradingBot::new(
-            exchange.clone(),
-            strategy.clone(),
-            repository.clone(),
-            None,
-            config,
-        );
+        let bot = TradingBot::new(exchange.clone(), strategy.clone(), repository.clone(), None, config);
 
         TestContext {
             bot,
@@ -260,7 +262,7 @@ mod bot_tests {
         assert_eq!(orders.len(), 1);
         assert_eq!(orders[0].side, TradeSide::Buy);
 
-         // Verify trade created in DB
+        // Verify trade created in DB
         let open_trades = ctx.repository.get_open_trades().await.unwrap();
         assert_eq!(open_trades.len(), 1);
     }

@@ -1,10 +1,10 @@
 use crate::error::{AppError, Result};
 use crate::types::*;
 use chrono::{DateTime, Utc};
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
-use sqlx::sqlite::SqlitePool;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use sqlx::Row;
+use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -120,7 +120,7 @@ impl Repository {
             let profit_opt: Option<f64> = row.get("profit_abs");
             if let Some(profit_f64) = profit_opt {
                 if let Some(profit) = Decimal::from_f64(profit_f64) {
-                     current_balance += profit;
+                    current_balance += profit;
                 }
             }
 
@@ -128,7 +128,7 @@ impl Repository {
                 peak_balance = current_balance;
             }
             let drawdown = (peak_balance - current_balance) / peak_balance * Decimal::from(100_i64);
-             if drawdown > Decimal::try_from(max_drawdown).unwrap_or(Decimal::ZERO) {
+            if drawdown > Decimal::try_from(max_drawdown).unwrap_or(Decimal::ZERO) {
                 max_drawdown = drawdown.to_f64().unwrap_or(0.0);
             }
         }
@@ -161,7 +161,7 @@ impl Repository {
         // 9 parameters per row. Chunk size of 100 (900 vars) is safe for all builds.
         for chunk in klines.chunks(100) {
             let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
-                "INSERT OR REPLACE INTO klines (pair, timeframe, open_time, open, high, low, close, volume, close_time) "
+                "INSERT OR REPLACE INTO klines (pair, timeframe, open_time, open, high, low, close, volume, close_time) ",
             );
 
             query_builder.push_values(chunk, |mut b, kline| {
@@ -238,9 +238,7 @@ impl Repository {
             let f: f64 = row
                 .try_get(col)
                 .map_err(|e| AppError::Database(format!("Failed to read {}: {}", col, e)))?;
-            Decimal::from_f64(f).ok_or_else(|| {
-                AppError::Parse(format!("Invalid float for decimal in {}", col))
-            })
+            Decimal::from_f64(f).ok_or_else(|| AppError::Parse(format!("Invalid float for decimal in {}", col)))
         }
     }
 
@@ -260,8 +258,7 @@ impl Repository {
 
     fn row_to_trade(&self, row: &sqlx::sqlite::SqliteRow) -> Result<Trade> {
         Ok(Trade {
-            id: Uuid::parse_str(row.get("id"))
-                .map_err(|e| AppError::Parse(format!("Invalid UUID: {}", e)))?,
+            id: Uuid::parse_str(row.get("id")).map_err(|e| AppError::Parse(format!("Invalid UUID: {}", e)))?,
             pair: row.get("pair"),
             is_open: row.get::<i32, _>("is_open") != 0,
             exchange: row.get("exchange"),

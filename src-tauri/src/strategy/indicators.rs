@@ -28,74 +28,6 @@ impl SMA {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::Utc;
-    use std::str::FromStr;
-
-    fn create_ohlcv(close_prices: Vec<&str>) -> Vec<OHLCV> {
-        close_prices
-            .into_iter()
-            .enumerate()
-            .map(|(_i, price)| OHLCV {
-                timestamp: Utc::now(),
-                open: Decimal::ZERO,
-                high: Decimal::ZERO,
-                low: Decimal::ZERO,
-                close: Decimal::from_str(price).unwrap(),
-                volume: Decimal::ZERO,
-            })
-            .collect()
-    }
-
-    #[test]
-    fn test_sma_calculation() {
-        let prices = vec!["10", "12", "14", "16", "18"];
-        let data = create_ohlcv(prices);
-        let sma = SMA::new(3);
-        let result = sma.calculate(&data).unwrap();
-
-        // period 3
-        // idx 0,1: None
-        // idx 2: (10+12+14)/3 = 12
-        // idx 3: (12+14+16)/3 = 14
-        // idx 4: (14+16+18)/3 = 16
-
-        assert_eq!(result[0], None);
-        assert_eq!(result[1], None);
-        assert_eq!(result[2], Some(Decimal::from_str("12").unwrap()));
-        assert_eq!(result[3], Some(Decimal::from_str("14").unwrap()));
-        assert_eq!(result[4], Some(Decimal::from_str("16").unwrap()));
-    }
-
-    #[test]
-    fn test_rsi_calculation() {
-        // RSI calculation is more complex, just verifying it runs and produces Some after period
-        let mut prices = Vec::new();
-        for i in 0..20 {
-            if i % 2 == 0 {
-                prices.push("10");
-            } else {
-                prices.push("12");
-            }
-        }
-        let data = create_ohlcv(prices);
-        let rsi = RSI::new(14);
-        let result = rsi.calculate(&data).unwrap();
-
-        assert_eq!(result.len(), 20);
-        // First 14 should be None
-        for i in 0..14 {
-            assert_eq!(result[i], None, "Index {} should be None", i);
-        }
-        // subsequent should be Some
-        for i in 14..20 {
-            assert!(result[i].is_some(), "Index {} should be Some", i);
-        }
-    }
-}
-
 pub struct RSI {
     period: usize,
 }
@@ -150,5 +82,73 @@ impl RSI {
         }
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use std::str::FromStr;
+
+    fn create_ohlcv(close_prices: Vec<&str>) -> Vec<OHLCV> {
+        close_prices
+            .into_iter()
+            .map(|price| OHLCV {
+                timestamp: Utc::now(),
+                open: Decimal::ZERO,
+                high: Decimal::ZERO,
+                low: Decimal::ZERO,
+                close: Decimal::from_str(price).unwrap(),
+                volume: Decimal::ZERO,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_sma_calculation() {
+        let prices = vec!["10", "12", "14", "16", "18"];
+        let data = create_ohlcv(prices);
+        let sma = SMA::new(3);
+        let result = sma.calculate(&data).unwrap();
+
+        // period 3
+        // idx 0,1: None
+        // idx 2: (10+12+14)/3 = 12
+        // idx 3: (12+14+16)/3 = 14
+        // idx 4: (14+16+18)/3 = 16
+
+        assert_eq!(result[0], None);
+        assert_eq!(result[1], None);
+        assert_eq!(result[2], Some(Decimal::from_str("12").unwrap()));
+        assert_eq!(result[3], Some(Decimal::from_str("14").unwrap()));
+        assert_eq!(result[4], Some(Decimal::from_str("16").unwrap()));
+    }
+
+    #[test]
+    #[allow(clippy::needless_range_loop)] // Suppress warning for index based check which is clearer here
+    fn test_rsi_calculation() {
+        // RSI calculation is more complex, just verifying it runs and produces Some after period
+        let mut prices = Vec::new();
+        for i in 0..20 {
+            if i % 2 == 0 {
+                prices.push("10");
+            } else {
+                prices.push("12");
+            }
+        }
+        let data = create_ohlcv(prices);
+        let rsi = RSI::new(14);
+        let result = rsi.calculate(&data).unwrap();
+
+        assert_eq!(result.len(), 20);
+        // First 14 should be None
+        for i in 0..14 {
+            assert_eq!(result[i], None, "Index {} should be None", i);
+        }
+        // subsequent should be Some
+        for i in 14..20 {
+            assert!(result[i].is_some(), "Index {} should be Some", i);
+        }
     }
 }

@@ -2,6 +2,7 @@
 // Based on freqtrade Python tests but adapted for current codebase
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod trade_tests {
     use rust_decimal::Decimal;
     use std::str::FromStr;
@@ -320,7 +321,7 @@ mod trade_tests {
         let lower_sl = Decimal::from(1940);
         if let Some(current_sl) = trade.stop_loss {
             if lower_sl > current_sl {
-                 trade.stop_loss = Some(lower_sl);
+                trade.stop_loss = Some(lower_sl);
             }
         }
         // Should remain 1950
@@ -330,8 +331,8 @@ mod trade_tests {
     /// Test update_limit_order (migrated from test_update_limit_order)
     #[test]
     fn test_update_limit_order() {
-         // This essentially tests Order struct updates
-         let mut order = crate::types::Order {
+        // This essentially tests Order struct updates
+        let mut order = crate::types::Order {
             id: "123".to_string(),
             symbol: "BTC/USDT".to_string(),
             side: crate::types::TradeSide::Buy,
@@ -401,7 +402,7 @@ mod trade_tests {
             profit_ratio: Some(Decimal::from_str("0.033").unwrap()),
         };
 
-        let trades = vec![trade_open, trade_closed];
+        let trades = [trade_open, trade_closed];
         let open_trades: Vec<&Trade> = trades.iter().filter(|t| t.is_open).collect();
 
         assert_eq!(open_trades.len(), 1);

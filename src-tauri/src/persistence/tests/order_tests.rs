@@ -2,6 +2,7 @@
 // Tests for Order-related types from types.rs
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod order_tests {
     use crate::types::{OrderStatus, OrderType, TradeSide};
 
