@@ -190,10 +190,10 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
         .to_f64()
         .unwrap_or(0.0);
 
-    // Calculate max drawdown
+    // Calculate max drawdown using Decimal for precision
     let mut peak_balance = rust_decimal::Decimal::from(10000_i64);
     let mut current_balance = rust_decimal::Decimal::from(10000_i64);
-    let mut max_drawdown = 0.0;
+    let mut max_drawdown = rust_decimal::Decimal::ZERO;
 
     for trade in &trades {
         if let Some(profit) = trade.profit_abs {
@@ -203,8 +203,8 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
             peak_balance = current_balance;
         }
         let drawdown = (peak_balance - current_balance) / peak_balance * rust_decimal::Decimal::from(100_i64);
-        if drawdown > rust_decimal::Decimal::from_f64(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO) {
-            max_drawdown = drawdown.to_f64().unwrap_or(0.0);
+        if drawdown > max_drawdown {
+            max_drawdown = drawdown;
         }
     }
 
@@ -212,7 +212,7 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
         total_profit,
         win_rate,
         open_trades: trades.iter().filter(|t| t.is_open).count(),
-        max_drawdown,
+        max_drawdown: max_drawdown.to_f64().unwrap_or(0.0),
         total_balance: current_balance.to_f64().unwrap_or(0.0),
     })
 }

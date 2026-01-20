@@ -7,25 +7,27 @@ use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// Parse timeframe string (e.g., "1m", "5m", "1h", "4h", "1d", "1w") to Duration
-fn parse_timeframe_to_duration(timeframe: &str) -> Duration {
-    match timeframe {
-        "1m" | "1 Minute" => Duration::minutes(1),
-        "3m" | "3 Minutes" => Duration::minutes(3),
-        "5m" | "5 Minutes" => Duration::minutes(5),
-        "15m" | "15 Minutes" => Duration::minutes(15),
-        "30m" | "30 Minutes" => Duration::minutes(30),
-        "1h" | "1 Hour" => Duration::hours(1),
-        "2h" | "2 Hours" => Duration::hours(2),
-        "4h" | "4 Hours" => Duration::hours(4),
-        "6h" | "6 Hours" => Duration::hours(6),
-        "8h" | "8 Hours" => Duration::hours(8),
-        "12h" | "12 Hours" => Duration::hours(12),
-        "1d" | "1 Day" => Duration::days(1),
-        "3d" | "3 Days" => Duration::days(3),
-        "1w" | "1 Week" => Duration::weeks(1),
-        "1M" | "1 Month" => Duration::days(30),
-        _ => Duration::hours(1), // Default to 1h
+/// Parse timeframe string to Duration
+/// Returns error for unrecognized timeframes to prevent silent data corruption
+fn parse_timeframe_to_duration(timeframe: &str) -> Result<Duration> {
+    let tf = timeframe.trim().to_lowercase();
+    match tf.as_str() {
+        "1m" | "1 minute" => Ok(Duration::minutes(1)),
+        "3m" | "3 minutes" => Ok(Duration::minutes(3)),
+        "5m" | "5 minutes" => Ok(Duration::minutes(5)),
+        "15m" | "15 minutes" => Ok(Duration::minutes(15)),
+        "30m" | "30 minutes" => Ok(Duration::minutes(30)),
+        "1h" | "1 hour" => Ok(Duration::hours(1)),
+        "2h" | "2 hours" => Ok(Duration::hours(2)),
+        "4h" | "4 hours" => Ok(Duration::hours(4)),
+        "6h" | "6 hours" => Ok(Duration::hours(6)),
+        "8h" | "8 hours" => Ok(Duration::hours(8)),
+        "12h" | "12 hours" => Ok(Duration::hours(12)),
+        "1d" | "1 day" => Ok(Duration::days(1)),
+        "3d" | "3 days" => Ok(Duration::days(3)),
+        "1w" | "1 week" => Ok(Duration::weeks(1)),
+        "1M" | "1 month" => Ok(Duration::days(30)),
+        _ => Err(AppError::Parse(format!("Invalid timeframe: {}", timeframe))),
     }
 }
 
@@ -110,7 +112,12 @@ impl Repository {
     }
 
     pub async fn save_klines(&self, pair: &str, timeframe: &str, klines: &[OHLCV]) -> Result<()> {
-        let timeframe_duration = parse_timeframe_to_duration(timeframe);
+        // Early return for empty klines to avoid unnecessary transaction overhead
+        if klines.is_empty() {
+            return Ok(());
+        }
+
+        let timeframe_duration = parse_timeframe_to_duration(timeframe)?;
         let mut tx = self.pool.begin().await?;
         for kline in klines {
             let close_time = kline.timestamp + timeframe_duration;
