@@ -248,14 +248,30 @@ impl Exchange for BinanceExchange {
             for pos in positions_arr {
                 let symbol = pos["symbol"].as_str().unwrap_or("").to_string();
                 let notional = pos["notional"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
-                let entry_price = pos["entryPrice"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
-                let mark_price = pos["markPrice"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
+                let entry_price = pos["entryPrice"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+                let mark_price = pos["markPrice"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
 
                 // Only include non-zero positions
                 if notional != Decimal::ZERO {
-                    let side = if notional > Decimal::ZERO { TradeSide::Buy } else { TradeSide::Sell };
+                    let side = if notional > Decimal::ZERO {
+                        TradeSide::Buy
+                    } else {
+                        TradeSide::Sell
+                    };
                     let size = notional.abs();
-                    let unrealized_pnl = pos["unrealizedProfit"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
+                    let unrealized_pnl = pos["unrealizedProfit"]
+                        .as_str()
+                        .unwrap_or("0")
+                        .parse()
+                        .unwrap_or(Decimal::ZERO);
 
                     positions.push(Position {
                         symbol,
