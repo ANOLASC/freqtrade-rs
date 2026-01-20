@@ -252,3 +252,84 @@ impl std::fmt::Display for CircuitBreakerError {
 }
 
 impl std::error::Error for CircuitBreakerError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    #[tokio::test]
+    async fn test_with_retry_success_first_try() {
+        let config = RetryConfig::default();
+        let result = with_retry(|| async { Ok::<_, ()>("success") }, config, |_| true).await;
+        assert_eq!(result.unwrap(), "success");
+    }
+
+    #[tokio::test]
+    async fn test_with_retry_success_after_fail() {
+        let config = RetryConfig {
+            base_delay_ms: 1,
+            ..Default::default()
+        };
+        let counter = Arc::new(Mutex::new(0));
+        let counter_clone = counter.clone();
+
+        let result = with_retry(
+            || async {
+                let mut c = counter_clone.lock().await;
+                *c += 1;
+                if *c < 2 { Err("fail") } else { Ok("success") }
+            },
+            config,
+            |_| true,
+        )
+        .await;
+
+        assert_eq!(result.unwrap(), "success");
+        assert_eq!(*counter.lock().await, 2);
+    }
+
+    #[tokio::test]
+    async fn test_with_retry_max_retries_exceeded() {
+        let config = RetryConfig {
+            max_retries: 2,
+            base_delay_ms: 1,
+            ..Default::default()
+        };
+
+        let result = with_retry(|| async { Err::<(), _>("fail") }, config, |_| true).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "fail");
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_flow() {
+        let cb = CircuitBreaker::new(2, 1, 1); // 2 fails to open, 1 success to close, 1s timeout
+
+        // Initially closed
+        assert!(cb.can_proceed().await);
+        assert_eq!(cb.get_state().await, CircuitBreakerState::Closed);
+
+        // Fail once
+        cb.record_failure().await;
+        assert_eq!(cb.get_state().await, CircuitBreakerState::Closed);
+
+        // Fail twice -> Open
+        cb.record_failure().await;
+        assert_eq!(cb.get_state().await, CircuitBreakerState::Open);
+        assert!(!cb.can_proceed().await);
+
+        // Wait for timeout
+        tokio::time::sleep(Duration::from_secs(2)).await;
+
+        // Should transition to HalfOpen on check
+        assert!(cb.can_proceed().await);
+        assert_eq!(cb.get_state().await, CircuitBreakerState::HalfOpen);
+
+        // Success -> Closed
+        cb.record_success().await;
+        assert_eq!(cb.get_state().await, CircuitBreakerState::Closed);
+    }
+}

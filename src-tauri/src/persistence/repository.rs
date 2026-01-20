@@ -317,3 +317,47 @@ impl Repository {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_create_and_get_trade() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        let repo = Repository::new(&db_path).await.unwrap();
+
+        let trade = Trade {
+            id: Uuid::new_v4(),
+            pair: "BTC/USDT".to_string(),
+            is_open: true,
+            exchange: "binance".to_string(),
+            open_rate: Decimal::from_str("50000.0").unwrap(),
+            open_date: Utc::now(),
+            close_rate: None,
+            close_date: None,
+            amount: Decimal::from_str("0.1").unwrap(),
+            stake_amount: Decimal::from_str("5000.0").unwrap(),
+            strategy: "test_strategy".to_string(),
+            timeframe: Timeframe::OneHour,
+            stop_loss: Some(Decimal::from_str("49000.0").unwrap()),
+            take_profit: Some(Decimal::from_str("55000.0").unwrap()),
+            exit_reason: None,
+            profit_abs: None,
+            profit_ratio: None,
+        };
+
+        repo.create_trade(&trade).await.unwrap();
+
+        let trades = repo.get_open_trades().await.unwrap();
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].id, trade.id);
+        assert_eq!(trades[0].pair, trade.pair);
+        assert_eq!(trades[0].open_rate, trade.open_rate);
+    }
+}

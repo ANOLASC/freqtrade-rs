@@ -217,4 +217,32 @@ mod tests {
         assert_eq!(config.exchange.key, "test_key");
         assert_eq!(config.exchange.secret, "test_secret");
     }
+
+    #[tokio::test]
+    async fn test_load_from_env() {
+        let mut config_manager = ConfigManager::new(AppConfig::default());
+
+        unsafe {
+            std::env::set_var("EXCHANGE_API_KEY", "env_key");
+            std::env::set_var("EXCHANGE_API_SECRET", "env_secret");
+            std::env::set_var("DATABASE_PATH", "env_db_path");
+            std::env::set_var("LOG_LEVEL", "DEBUG");
+        }
+
+        let result = config_manager.load_from_env().await;
+        assert!(result.is_ok());
+
+        unsafe {
+            std::env::remove_var("EXCHANGE_API_KEY");
+            std::env::remove_var("EXCHANGE_API_SECRET");
+            std::env::remove_var("DATABASE_PATH");
+            std::env::remove_var("LOG_LEVEL");
+        }
+
+        let config = config_manager.config();
+        assert_eq!(config.exchange.key, "env_key");
+        assert_eq!(config.exchange.secret, "env_secret");
+        assert_eq!(config.database.path, "env_db_path");
+        assert_eq!(config.log.level, "DEBUG");
+    }
 }

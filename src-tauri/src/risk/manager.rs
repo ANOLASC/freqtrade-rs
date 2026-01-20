@@ -90,3 +90,95 @@ pub struct StopReason {
     pub until: DateTime<Utc>,
     pub protection: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::risk::protection::{IProtection, ProtectionReturn};
+    use crate::types::Trade;
+    use tempfile::tempdir;
+
+    struct MockProtection {
+        should_stop_global: bool,
+        should_stop_pair: bool,
+    }
+
+    impl IProtection for MockProtection {
+        fn name(&self) -> &str {
+            "MockProtection"
+        }
+        fn short_desc(&self) -> String {
+            "Mock".to_string()
+        }
+        fn has_global_stop(&self) -> bool {
+            true
+        }
+        fn has_local_stop(&self) -> bool {
+            true
+        }
+
+        fn global_stop(&self, _date: DateTime<Utc>, _trades: &[Trade]) -> Option<ProtectionReturn> {
+            if self.should_stop_global {
+                Some(ProtectionReturn {
+                    lock: true,
+                    reason: Some("Global Stop".to_string()),
+                    until: Utc::now() + chrono::Duration::hours(1),
+                    lock_side: "*".to_string(),
+                })
+            } else {
+                None
+            }
+        }
+
+        fn stop_per_pair(&self, _pair: &str, _date: DateTime<Utc>, _trades: &[Trade]) -> Option<ProtectionReturn> {
+            if self.should_stop_pair {
+                Some(ProtectionReturn {
+                    lock: true,
+                    reason: Some("Pair Stop".to_string()),
+                    until: Utc::now() + chrono::Duration::hours(1),
+                    lock_side: "*".to_string(),
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_risk_manager_global_stop() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test_risk.db");
+        let repo = Arc::new(Repository::new(&db_path).await.unwrap());
+
+        let risk_manager = RiskManager::new(repo);
+
+        let protection = MockProtection {
+            should_stop_global: true,
+            should_stop_pair: false,
+        };
+        risk_manager.add_protection(Box::new(protection)).await.unwrap();
+
+        let result = risk_manager.check_global_stop().await.unwrap();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().reason, "Global Stop");
+    }
+
+    #[tokio::test]
+    async fn test_risk_manager_pair_stop() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test_risk_pair.db");
+        let repo = Arc::new(Repository::new(&db_path).await.unwrap());
+
+        let risk_manager = RiskManager::new(repo);
+
+        let protection = MockProtection {
+            should_stop_global: false,
+            should_stop_pair: true,
+        };
+        risk_manager.add_protection(Box::new(protection)).await.unwrap();
+
+        let result = risk_manager.check_pair_stop("BTC/USDT").await.unwrap();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().reason, "Pair Stop");
+    }
+}
