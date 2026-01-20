@@ -6,11 +6,138 @@
 
 ## 📊 Executive Summary
 
-**Overall Progress: 25%** (~3,000 lines of Rust code written out of ~12,000 estimated)
+**Overall Progress: 30%** (~3,500 lines of Rust code written out of ~12,000 estimated)
 
-**Last Updated:** 2026-01-14
+**Test Migration Progress:**
+- Total test cases mapped: **1,310**
+- Priority P0 tests: ~200
+- Priority P1 tests: ~450
+- Priority P2 tests: ~400
+- Priority P3 tests: ~100
+- **Documentation complete: 100%**
+- **Tests migrated: ~3%** (currently only basic persistence tests)
 
-**Note:** Progress estimates have been revised based on actual code review. Previous estimates were overly optimistic for several modules.
+**Last Updated:** 2026-01-20
+
+---
+
+## 0. Test Migration Planning (NEW!)
+
+> Comprehensive test migration from freqtrade (Python) to freqtrade-rs (Rust)
+
+### Test Migration Overview
+
+| Module | Test Files | Test Cases | Code Lines | Priority |
+|--------|------------|------------|------------|----------|
+| **Persistence** | 5 | 95 | 2,895 | P0 |
+| **FreqtradeBot** | 4 | 200+ | 5,917+ | P0 |
+| **Exchange** | 12 | 250+ | 6,660+ | P1 |
+| **Strategy** | 5 | 150+ | 1,058+ | P1 |
+| **Optimize** | 9 | 100+ | 2,500+ | P2 |
+| **Leverage** | 3 | 30+ | 800+ | P1 |
+| **RPC** | 3 | 50+ | 1,200+ | P2 |
+| **Data** | 8 | 80+ | 1,500+ | P2 |
+| **FreqAI** | 4 | 50+ | 1,000+ | P3 |
+| **Utilities** | 8 | 40+ | 600+ | P3 |
+| **Commands** | 3 | 30+ | 500+ | P2 |
+| **Total** | **65+** | **1,310+** | **25,000+** | - |
+
+### Test Migration Documents
+
+| Document | Purpose | Location |
+|----------|---------|----------|
+| **TEST_MIGRATION_COMPLETE.md** | Complete mapping of all 1,310 test cases with line numbers | Root directory |
+| **TEST_MIGRATION.md** | Migration patterns and code-level guides | Root directory |
+| **scripts/test_analyzer.py** | Automated test analysis tool | scripts/ |
+
+### Test Migration Milestones
+
+| Milestone | Target Date | Status | Tests |
+|-----------|-------------|--------|-------|
+| ✅ Test Analysis Complete | 2026-01-20 | ✅ Done | 1,310 mapped |
+| 🔄 P0 Persistence Tests | 2026-02-10 | 📅 Planned | 95 tests |
+| 🔄 P0 FreqtradeBot Core | 2026-02-28 | 📅 Planned | 150 tests |
+| 🔄 P0 Order Management | 2026-03-15 | 📅 Planned | 50 tests |
+| 🔄 P1 Exchange Tests | 2026-04-01 | 📅 Planned | 250 tests |
+| 🔄 P1 Strategy Tests | 2026-04-15 | 📅 Planned | 150 tests |
+| 🔄 All Tests Complete | 2026-06-01 | 📅 Planned | 1,310 tests |
+
+### Key Test Files to Migrate
+
+#### P0 - Core Trading Logic (Highest Priority)
+
+**Persistence Module:**
+- `test_persistence.py` (2,895 lines, 62 tests)
+  - Trade model tests (Line 28-2824)
+  - Order model tests
+  - Profit calculation tests (120+ parameterized cases)
+  - Database migration tests
+
+- `test_migrations.py` (451 lines, 8 tests)
+  - Database migration
+  - Schema validation
+
+**FreqtradeBot Module:**
+- `test_freqtradebot.py` (5,917 lines, 150+ tests)
+  - Trade creation and execution (Line 287-1258)
+  - Order management (Line 1264-2525)
+  - Position handling
+  - Stop-loss handling
+
+- `test_integration.py` (32,798 lines, 10+ tests)
+  - DCA buying/selling
+  - Integration scenarios
+
+- `test_stoploss_on_exchange.py` (42,953 lines, 25+ tests)
+  - Exchange stop-loss orders
+  - Trailing stop-loss
+
+### Test Migration Patterns
+
+#### pytest → Rust Test Conversion
+
+| Python (pytest) | Rust |
+|-----------------|------|
+| `@pytest.fixture` | `#[test]` + setup functions |
+| `pytest.raises()` | `assert!(panic!)` or `#[should_panic]` |
+| `pytest.mark.parametrize` | `proptest` or manual test vectors |
+| `MagicMock` | `Arc<RwLock<T>>` or mock structs |
+| `mocker.patch()` | Dependency injection |
+| `assert pytest.approx()` | `assert_relative_eq!()` |
+
+#### Example Conversion
+
+**Python:**
+```python
+def test_calc_profit(exchange, is_short, lev, close_rate, fee_close, profit, profit_ratio):
+    trade = Trade(...)
+    result = trade.calculate_profit(close_rate)
+    assert pytest.approx(result.profit_abs) == profit
+```
+
+**Rust:**
+```rust
+#[tokio::test]
+async fn test_calc_profit() {
+    let trade = Trade::builder()
+        .pair("ADA/USDT")
+        .build()
+        .await;
+    
+    let result = trade.calculate_profit(Decimal::from(2)).await;
+    assert_relative_eq!(result.profit_abs, Decimal::from(2.6925), max_relative = 0.0001);
+}
+```
+
+### Test Coverage Targets
+
+| Phase | Target Coverage | Focus Areas |
+|-------|----------------|-------------|
+| Phase 1 | 60% | Core trading logic |
+| Phase 2 | 70% | Exchange integration |
+| Phase 3 | 80% | Strategy system |
+| Phase 4 | 85% | All modules |
+| Phase 5 | 90% | Complete coverage |
 
 ---
 
@@ -365,10 +492,12 @@ Total Lines of Code: ~3,000 / ~12,000
 ### Milestone Tracking
 
 | Milestone | Target Date | Status |
-| ----------- | ------------- | -------- |
+|-----------|-------------|--------|
 | ✅ Risk Management Complete | 2026-01-05 | ✅ Done |
 | ✅ Database Layer Complete | 2026-01-06 | ✅ Done |
-| ⏳ Phase 1 Start | 2026-01-08 | 📅 Planned |
+| ✅ Test Analysis Complete | 2026-01-20 | ✅ Done |
+| ⏳ P0 Persistence Tests | 2026-02-10 | 📅 Planned |
+| ⏳ P0 FreqtradeBot Core | 2026-02-28 | 📅 Planned |
 | ⏳ Phase 1 Complete | 2026-01-28 | 📅 Planned |
 | ⏳ Phase 2 Complete | 2026-02-18 | 📅 Planned |
 | ⏳ Phase 3 Complete | 2026-03-11 | 📅 Planned |
@@ -596,6 +725,6 @@ freqtrade-rs/
 
 ---
 
-**Document Status:** ✅ Complete
-**Next Review:** 2026-01-14
+**Document Status:** ✅ Complete (Test documentation added)
+**Next Review:** 2026-01-27
 **Maintainer:** freqtrade-rs Development Team

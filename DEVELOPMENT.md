@@ -150,15 +150,21 @@ freqtrade-rs/
 │   ├── types/                    # TypeScript types
 │   └── ui/                       # Base UI components
 │
+├── scripts/                      # Development utilities
+│   └── test_analyzer.py          # Test migration analysis tool
+│
 ├── config/                       # Configuration files
 │   └── default.toml             # Default config
 │
 ├── migrations/                   # Database migrations
 │   └── 001_initial.sql
 │
-├── docs/                         # Documentation
-├── user_data/                    # User data directory
-└── package.json
+├── TEST_MIGRATION_COMPLETE.md    # Complete test mapping (1,310 tests)
+├── TEST_MIGRATION.md             # Test migration guide
+├── MIGRATION_PLAN.md             # Overall migration roadmap
+├── DEVELOPMENT.md                # This file
+├── AGENTS.md                     # AI agent guidelines
+└── user_data/                    # User data directory
 ```
 
 ### Key Files
@@ -533,6 +539,32 @@ cargo run -- --print-env
 
 ## Tools and Utilities
 
+### Development Scripts
+
+All development utility scripts are located in the `scripts/` directory:
+
+```
+scripts/
+└── test_analyzer.py              # Test migration analysis tool
+```
+
+#### test_analyzer.py
+
+Analyzes test files from the original freqtrade (Python) project and generates comprehensive test mapping reports.
+
+```bash
+# Analyze all test files
+python scripts/test_analyzer.py
+
+# Output saved to /tmp/test_analysis.json
+```
+
+**Features:**
+- Extracts all test functions with line numbers
+- Identifies parameterized tests
+- Categorizes by module and priority
+- Generates JSON report for migration tracking
+
 ### Recommended VS Code Extensions
 
 | Extension | Purpose |
@@ -577,4 +609,4 @@ alias fr-fmt='cd src-tauri && cargo fmt'
 
 ---
 
-*Last updated: 2026-01-14*
+*Last updated: 2026-01-20*
