@@ -79,6 +79,7 @@ pub struct BinanceExchange {
     _api_key: String,
     _api_secret: String,
     base_url: String,
+    futures_base_url: String,
     client: reqwest::Client,
 }
 
@@ -88,13 +89,15 @@ impl BinanceExchange {
             _api_key: api_key,
             _api_secret: api_secret,
             base_url: "https://api.binance.com".to_string(),
+            futures_base_url: "https://fapi.binance.com".to_string(),
             client: reqwest::Client::new(),
         }
     }
 
     #[cfg(test)]
     pub fn with_base_url(mut self, url: String) -> Self {
-        self.base_url = url;
+        self.base_url = url.clone();
+        self.futures_base_url = url;
         self
     }
 
@@ -226,7 +229,8 @@ impl Exchange for BinanceExchange {
     async fn fetch_positions(&self) -> Result<Vec<Position>> {
         let query = String::new();
         let signed_query = self.sign_query(query);
-        let url = format!("{}/api/v3/account?{}", self.get_base_url(), signed_query);
+        // Use Futures API endpoint for position data
+        let url = format!("{}/fapi/v2/account?{}", self.futures_base_url, signed_query);
 
         let response = self
             .client
@@ -237,7 +241,7 @@ impl Exchange for BinanceExchange {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Exchange(format!("Binance error: {}", error_text)));
+            return Err(AppError::Exchange(format!("Binance Futures error: {}", error_text)));
         }
 
         let data: serde_json::Value = response.json().await?;
@@ -247,15 +251,43 @@ impl Exchange for BinanceExchange {
         if let Some(positions_arr) = positions_json.as_array() {
             for pos in positions_arr {
                 let symbol = pos["symbol"].as_str().unwrap_or("").to_string();
-                let notional = pos["notional"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
-                let entry_price = pos["entryPrice"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
-                let mark_price = pos["markPrice"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
+                let position_amt: Decimal = pos["positionAmt"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+                let entry_price: Decimal = pos["entryPrice"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+                let mark_price: Decimal = pos["markPrice"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
+                let unrealized_pnl: Decimal = pos["unrealizedProfit"]
+                    .as_str()
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(Decimal::ZERO);
 
                 // Only include non-zero positions
-                if notional != Decimal::ZERO {
-                    let side = if notional > Decimal::ZERO { TradeSide::Buy } else { TradeSide::Sell };
-                    let size = notional.abs();
-                    let unrealized_pnl = pos["unrealizedProfit"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
+                if position_amt != Decimal::ZERO {
+                    let side = if position_amt > Decimal::ZERO {
+                        TradeSide::Buy
+                    } else {
+                        TradeSide::Sell
+                    };
+                    let size = position_amt.abs();
+
+                    // Calculate percentage: (unrealized_pnl / position_value) * 100
+                    let position_value = size * entry_price;
+                    let percentage = if position_value > Decimal::ZERO {
+                        (unrealized_pnl / position_value) * Decimal::from(100)
+                    } else {
+                        Decimal::ZERO
+                    };
 
                     positions.push(Position {
                         symbol,
@@ -264,7 +296,7 @@ impl Exchange for BinanceExchange {
                         entry_price,
                         mark_price,
                         unrealized_pnl,
-                        percentage: Decimal::ZERO,
+                        percentage,
                     });
                 }
             }
