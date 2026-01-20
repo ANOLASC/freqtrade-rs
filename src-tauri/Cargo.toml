@@ -36,6 +36,8 @@ futures = "0.3"
 hmac = "0.12.1"
 sha2 = "0.10.9"
 hex = "0.4.3"
+strum = { version = "0.26", features = ["derive"] }
+url = "2.5"
 
 [dev-dependencies]
 mockito = "1.5"
