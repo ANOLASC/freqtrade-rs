@@ -19,26 +19,26 @@ impl Default for Fee {
 }
 
 /// Calculate fee for a trade
-/// 
+///
 /// # Arguments
 /// * `amount` - Trade amount (in base currency, e.g., BTC)
 /// * `price` - Execution price (in quote currency, e.g., USDT)
 /// * `fee_rate` - Fee rate (e.g., 0.001 for 0.1%)
 /// * `fee_currency` - Currency to pay fee in ("base" or "quote")
-/// 
+///
 /// # Returns
 /// Fee amount in the specified currency
 pub fn calculate_fee(amount: Decimal, price: Decimal, fee_rate: Decimal, fee_currency: &str) -> Decimal {
     let total_value = amount * price;
-    
+
     match fee_currency {
-        "base" => amount * fee_rate,          // Fee in base currency (e.g., BTC)
-        _ => total_value * fee_rate,          // Fee in quote currency (e.g., USDT)
+        "base" => amount * fee_rate, // Fee in base currency (e.g., BTC)
+        _ => total_value * fee_rate, // Fee in quote currency (e.g., USDT)
     }
 }
 
 /// Calculate total cost including fees
-/// 
+///
 /// Returns (total_cost, fee_amount)
 pub fn calculate_total_cost(
     amount: Decimal,
@@ -52,11 +52,11 @@ pub fn calculate_total_cost(
 }
 
 /// Calculate slippage for an order
-/// 
+///
 /// # Arguments
 /// * `expected_price` - Expected execution price
 /// * `actual_price` - Actual execution price
-/// 
+///
 /// # Returns
 /// Slippage as a decimal (e.g., 0.001 for 0.1% slippage)
 pub fn calculate_slippage(expected_price: Decimal, actual_price: Decimal) -> Decimal {
@@ -67,21 +67,16 @@ pub fn calculate_slippage(expected_price: Decimal, actual_price: Decimal) -> Dec
 }
 
 /// Simulate slippage for backtesting
-/// 
+///
 /// # Arguments
 /// * `base_price` - Current market price
 /// * `_amount` - Order amount (reserved for future use)
 /// * `order_type` - "market" or "limit"
 /// * `slippage_ratio` - Expected slippage ratio (e.g., 0.001 for 0.1%)
-/// 
+///
 /// # Returns
 /// Adjusted price with slippage applied
-pub fn simulate_slippage(
-    base_price: Decimal,
-    _amount: Decimal,
-    order_type: &str,
-    slippage_ratio: Decimal,
-) -> Decimal {
+pub fn simulate_slippage(base_price: Decimal, _amount: Decimal, order_type: &str, slippage_ratio: Decimal) -> Decimal {
     match order_type {
         "market" => {
             // Market orders typically have slippage
@@ -98,7 +93,7 @@ pub fn simulate_slippage(
 }
 
 /// Calculate Binance trading fee
-/// 
+///
 /// Based on VIP level and maker/taker status
 pub fn binance_fee(_is_maker: bool, _vip_level: u8) -> Decimal {
     // 0.01% fee for both maker and taker
@@ -115,9 +110,9 @@ mod tests {
         let amount = Decimal::from(1); // 1 BTC
         let price = Decimal::from(50000); // $50,000
         let fee_rate = Decimal::from(1) / Decimal::from(1000); // 0.1%
-        
+
         let fee = calculate_fee(amount, price, fee_rate, "base");
-        
+
         // 1 BTC * 0.001 = 0.001 BTC
         assert_eq!(fee.to_f64().unwrap(), 0.001);
     }
@@ -127,9 +122,9 @@ mod tests {
         let amount = Decimal::from(1); // 1 BTC
         let price = Decimal::from(50000); // $50,000
         let fee_rate = Decimal::from(1) / Decimal::from(1000); // 0.1%
-        
+
         let fee = calculate_fee(amount, price, fee_rate, "quote");
-        
+
         // 50000 * 0.001 = $50
         assert_eq!(fee.to_f64().unwrap(), 50.0);
     }
@@ -138,9 +133,9 @@ mod tests {
     fn test_calculate_slippage() {
         let expected = Decimal::from(50000);
         let actual = Decimal::from(50250);
-        
+
         let slippage = calculate_slippage(expected, actual);
-        
+
         // |50250 - 50000| / 50000 = 0.005 = 0.5%
         assert_eq!(slippage.to_f64().unwrap(), 0.005);
     }
@@ -148,9 +143,9 @@ mod tests {
     #[test]
     fn test_zero_slippage() {
         let price = Decimal::from(50000);
-        
+
         let slippage = calculate_slippage(price, price);
-        
+
         assert_eq!(slippage, Decimal::ZERO);
     }
 
@@ -159,9 +154,9 @@ mod tests {
         let amount = Decimal::from(1); // 1 BTC
         let price = Decimal::from(50000); // $50,000
         let fee_rate = Decimal::from(1) / Decimal::from(1000); // 0.1%
-        
+
         let (total, fee) = calculate_total_cost(amount, price, fee_rate, "quote");
-        
+
         // Total: 50000 + 50 = 50050
         assert_eq!(total.to_f64().unwrap(), 50050.0);
         // Fee: 50
