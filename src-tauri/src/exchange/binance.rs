@@ -120,6 +120,39 @@ impl BinanceExchange {
     }
 }
 
+/// Helper function to parse Binance order status string to OrderStatus enum
+fn parse_order_status(status: &str) -> OrderStatus {
+    match status {
+        "NEW" => OrderStatus::New,
+        "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
+        "FILLED" => OrderStatus::Filled,
+        "CANCELED" => OrderStatus::Canceled,
+        "REJECTED" => OrderStatus::Rejected,
+        "EXPIRED" => OrderStatus::Expired,
+        _ => OrderStatus::New,
+    }
+}
+
+/// Helper function to parse Binance trade side string to TradeSide enum
+fn parse_trade_side(side: &str) -> TradeSide {
+    match side {
+        "BUY" => TradeSide::Buy,
+        "SELL" => TradeSide::Sell,
+        _ => TradeSide::Buy,
+    }
+}
+
+/// Helper function to parse Binance order type string to OrderType enum
+fn parse_order_type(order_type: &str) -> OrderType {
+    match order_type {
+        "MARKET" => OrderType::Market,
+        "LIMIT" => OrderType::Limit,
+        "STOP_LOSS_LIMIT" => OrderType::StopLimit,
+        "STOP_LOSS" => OrderType::StopMarket,
+        _ => OrderType::Market,
+    }
+}
+
 #[async_trait]
 impl Exchange for BinanceExchange {
     async fn fetch_ticker(&self, symbol: &str) -> Result<Ticker> {
@@ -333,15 +366,7 @@ impl Exchange for BinanceExchange {
 
         let data: BinanceOrderResponse = response.json().await?;
 
-        let status = match data.status.as_str() {
-            "NEW" => OrderStatus::New,
-            "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
-            "FILLED" => OrderStatus::Filled,
-            "CANCELED" => OrderStatus::Canceled,
-            "REJECTED" => OrderStatus::Rejected,
-            "EXPIRED" => OrderStatus::Expired,
-            _ => OrderStatus::New,
-        };
+        let status = parse_order_status(&data.status);
 
         let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
         let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
@@ -404,29 +429,11 @@ impl Exchange for BinanceExchange {
 
         let data: BinanceOrderResponse = response.json().await?;
 
-        let status = match data.status.as_str() {
-            "NEW" => OrderStatus::New,
-            "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
-            "FILLED" => OrderStatus::Filled,
-            "CANCELED" => OrderStatus::Canceled,
-            "REJECTED" => OrderStatus::Rejected,
-            "EXPIRED" => OrderStatus::Expired,
-            _ => OrderStatus::New,
-        };
+        let status = parse_order_status(&data.status);
 
-        let side = match data.side.as_str() {
-            "BUY" => TradeSide::Buy,
-            "SELL" => TradeSide::Sell,
-            _ => TradeSide::Buy,
-        };
+        let side = parse_trade_side(&data.side);
 
-        let order_type = match data.order_type.as_str() {
-            "MARKET" => OrderType::Market,
-            "LIMIT" => OrderType::Limit,
-            "STOP_LOSS_LIMIT" => OrderType::StopLimit,
-            "STOP_LOSS" => OrderType::StopMarket,
-            _ => OrderType::Market,
-        };
+        let order_type = parse_order_type(&data.order_type);
 
         let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
         let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
@@ -473,29 +480,11 @@ impl Exchange for BinanceExchange {
 
         let mut orders = Vec::new();
         for data in orders_data {
-            let status = match data.status.as_str() {
-                "NEW" => OrderStatus::New,
-                "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
-                "FILLED" => OrderStatus::Filled,
-                "CANCELED" => OrderStatus::Canceled,
-                "REJECTED" => OrderStatus::Rejected,
-                "EXPIRED" => OrderStatus::Expired,
-                _ => OrderStatus::New,
-            };
+            let status = parse_order_status(&data.status);
 
-            let side = match data.side.as_str() {
-                "BUY" => TradeSide::Buy,
-                "SELL" => TradeSide::Sell,
-                _ => TradeSide::Buy,
-            };
+            let side = parse_trade_side(&data.side);
 
-            let order_type = match data.order_type.as_str() {
-                "MARKET" => OrderType::Market,
-                "LIMIT" => OrderType::Limit,
-                "STOP_LOSS_LIMIT" => OrderType::StopLimit,
-                "STOP_LOSS" => OrderType::StopMarket,
-                _ => OrderType::Market,
-            };
+            let order_type = parse_order_type(&data.order_type);
 
             let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
             let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);

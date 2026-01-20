@@ -1,6 +1,6 @@
 # freqtrade-rs
 
-[![codecov](https://codecov.io/gh/ANOLASC/freqtrade-rs/graph/badge.svg?token=b4jDXLLteF)](https://codecov.io/gh/ANOLASC/freqtrade-rs)
+[![codecov](https://codecov.io/gh/ANOLASC/freqtrade-rs/branch/master/graph/badge.svg?token=b4jDXLLteF)](https://codecov.io/gh/ANOLASC/freqtrade-rs)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-black?logo=rust&style=flat-square)](https://www.rust-lang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-2-black?logo=tauri&style=flat-square)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19.1.0-black?logo=react&style=flat-square)](https://reactjs.org/)
@@ -126,7 +126,7 @@ freqtrade-rs/
 ## 🔗 相关资源
 
 - [freqtrade Python](https://github.com/freqtrade/freqtrade) - 原版Python项目
-- [freqtrade-rs GitHub](https://github.com/code-yeongyu/freqtrade-rs) - 本项目仓库
+- [freqtrade-rs GitHub](https://github.com/ANOLASC/freqtrade-rs) - 本项目仓库
 
 ## 🤝 许可证
 

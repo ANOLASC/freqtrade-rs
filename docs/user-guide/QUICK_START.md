@@ -220,9 +220,9 @@ pnpm run dev -- --port 3000
 
 | Resource | Link |
 |----------|------|
-| GitHub Issues | [github.com/code-yeongyu/freqtrade-rs/issues](https://github.com/code-yeongyu/freqtrade-rs/issues) |
+| GitHub Issues | [github.com/ANOLASC/freqtrade-rs/issues](https://github.com/ANOLASC/freqtrade-rs/issues) |
 | Discord | [discord.gg/freqtrade](https://discord.gg/p7nuUxk) |
-| Wiki | [github.com/code-yeongyu/freqtrade-rs/wiki](https://github.com/code-yeongyu/freqtrade-rs/wiki) |
+| Wiki | [github.com/ANOLASC/freqtrade-rs/wiki](https://github.com/ANOLASC/freqtrade-rs/wiki) |
 
 ---
 

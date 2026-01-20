@@ -60,7 +60,7 @@ Before you begin, ensure you have the following installed:
 
 2. **Set up upstream remote**
    ```bash
-   git remote add upstream https://github.com/code-yeongyu/freqtrade-rs.git
+   git remote add upstream https://github.com/ANOLASC/freqtrade-rs.git
    ```
 
 3. **Install dependencies**
@@ -369,7 +369,7 @@ Links to related documentation.
 
 ### I want to contribute but don't know where to start
 
-Check out the [Good First Issues](https://github.com/code-yeongyu/freqtrade-rs/issues?q=label:good+first+issue) label.
+Check out the [Good First Issues](https://github.com/ANOLASC/freqtrade-rs/issues?q=label:good+first+issue) label.
 
 ### I have a question about the project
 

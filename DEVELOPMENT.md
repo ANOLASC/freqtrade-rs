@@ -44,11 +44,11 @@
 
 ```bash
 # Clone with HTTPS
-git clone https://github.com/code-yeongyu/freqtrade-rs.git
+git clone https://github.com/ANOLASC/freqtrade-rs.git
 cd freqtrade-rs
 
 # Or with SSH
-git clone git@github.com:code-yeongyu/freqtrade-rs.git
+git clone git@github.com:ANOLASC/freqtrade-rs.git
 cd freqtrade-rs
 ```
 
