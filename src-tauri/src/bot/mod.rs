@@ -185,15 +185,12 @@ impl TradingBot {
                 // 计算买入金额和数量
                 let current_price = klines.last().unwrap().close;
                 let stake_amount_f64 = self.config.stake_amount;
-                let stake_amount_decimal = Decimal::try_from(stake_amount_f64)
-                    .unwrap_or(Decimal::from(0));
-                
+                let stake_amount_decimal = Decimal::try_from(stake_amount_f64).unwrap_or(Decimal::from(0));
+
                 let amount = if stake_amount_decimal > Decimal::ZERO {
                     stake_amount_decimal / current_price
                 } else {
-                    return Err(crate::error::AppError::InvalidInput(
-                        "Invalid stake amount".to_string(),
-                    ));
+                    return Err(crate::error::AppError::InvalidInput("Invalid stake amount".to_string()));
                 };
 
                 // dry_run 模式
@@ -232,7 +229,10 @@ impl TradingBot {
                 }
 
                 // 实盘模式 - 执行买入
-                eprintln!("Executing buy for {} - Amount: {} @ Price: {}", pair, amount, current_price);
+                eprintln!(
+                    "Executing buy for {} - Amount: {} @ Price: {}",
+                    pair, amount, current_price
+                );
                 let order_req = OrderRequest {
                     symbol: pair.to_string(),
                     side: TradeSide::Buy,
@@ -277,10 +277,7 @@ impl TradingBot {
                     }
                     Err(e) => {
                         eprintln!("Failed to execute buy order: {}", e);
-                        return Err(crate::error::AppError::Exchange(format!(
-                            "Buy order failed: {}",
-                            e
-                        )));
+                        return Err(crate::error::AppError::Exchange(format!("Buy order failed: {}", e)));
                     }
                 }
             }
