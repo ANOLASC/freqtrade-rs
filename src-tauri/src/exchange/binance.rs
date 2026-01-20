@@ -574,4 +574,103 @@ mod tests {
         assert_eq!(order.status, OrderStatus::Filled);
         assert_eq!(order.amount, Decimal::from_str("1.0").unwrap());
     }
+
+    #[tokio::test]
+    async fn test_fetch_balance_success() {
+        let mut server = Server::new_async().await;
+        let url = server.url();
+
+        let mock = server
+            .mock("GET", "/api/v3/account")
+            .match_header("X-MBX-APIKEY", "test_key")
+            .match_query(Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{
+                "makerCommission": 15,
+                "takerCommission": 15,
+                "buyerCommission": 0,
+                "sellerCommission": 0,
+                "canTrade": true,
+                "canWithdraw": true,
+                "canDeposit": true,
+                "updateTime": 123456789,
+                "accountType": "SPOT",
+                "balances": [
+                    {
+                        "asset": "BTC",
+                        "free": "4723846.89208129",
+                        "locked": "0.00000000"
+                    },
+                    {
+                        "asset": "USDT",
+                        "free": "100.00000000",
+                        "locked": "50.00000000"
+                    }
+                ]
+            }"#,
+            )
+            .create_async()
+            .await;
+
+        let exchange = BinanceExchange::new("test_key".to_string(), "test_secret".to_string()).with_base_url(url);
+
+        let result = exchange.fetch_balance().await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+        let balance = result.unwrap();
+        assert_eq!(balance.currency, "USDT");
+        assert_eq!(balance.free, Decimal::from_str("100.0").unwrap());
+        assert_eq!(balance.used, Decimal::from_str("50.0").unwrap());
+        assert_eq!(balance.total, Decimal::from_str("150.0").unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_fetch_ohlcv_success() {
+        let mut server = Server::new_async().await;
+        let url = server.url();
+
+        let mock = server
+            .mock("GET", "/api/v3/klines")
+            .match_query(Matcher::Regex("symbol=BTCUSDT&interval=1h&limit=500".to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[
+                [
+                    1499040000000,
+                    "0.01634790",
+                    "0.80000000",
+                    "0.01575800",
+                    "0.01577100",
+                    "148976.11427815",
+                    1499644799999,
+                    "2434.19055334",
+                    308,
+                    "1756.87402397",
+                    "28.46694368",
+                    "17928899.62484339"
+                ]
+            ]"#,
+            )
+            .create_async()
+            .await;
+
+        let exchange = BinanceExchange::new("test_key".to_string(), "test_secret".to_string()).with_base_url(url);
+
+        let result = exchange.fetch_ohlcv("BTCUSDT", "1h", 500).await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+        let klines = result.unwrap();
+        assert_eq!(klines.len(), 1);
+        let kline = &klines[0];
+        assert_eq!(kline.open, Decimal::from_str("0.01634790").unwrap());
+        assert_eq!(kline.high, Decimal::from_str("0.80000000").unwrap());
+        assert_eq!(kline.low, Decimal::from_str("0.01575800").unwrap());
+        assert_eq!(kline.close, Decimal::from_str("0.01577100").unwrap());
+        assert_eq!(kline.volume, Decimal::from_str("148976.11427815").unwrap());
+    }
 }
