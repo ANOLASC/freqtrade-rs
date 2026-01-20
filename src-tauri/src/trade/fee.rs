@@ -92,12 +92,46 @@ pub fn simulate_slippage(base_price: Decimal, _amount: Decimal, order_type: &str
     }
 }
 
-/// Calculate Binance trading fee
+/// Calculate Binance trading fee based on VIP level and maker/taker status
 ///
-/// Based on VIP level and maker/taker status
-pub fn binance_fee(_is_maker: bool, _vip_level: u8) -> Decimal {
-    // 0.01% fee for both maker and taker
-    Decimal::from(1) / Decimal::from(1000)
+/// # Arguments
+/// * `is_maker` - Whether this is a maker order (adds liquidity)
+/// * `vip_level` - Binance VIP level (0-9)
+///
+/// # Returns
+/// Fee rate as decimal (e.g., 0.001 for 0.1%)
+///
+/// Fee structure based on Binance Spot trading (as of 2024):
+/// - VIP 0: Maker 0.1%, Taker 0.1%
+/// - VIP 1: Maker 0.09%, Taker 0.1%
+/// - VIP 2: Maker 0.08%, Taker 0.1%
+/// - VIP 3+: Lower fees (simplified to 0.06% maker, 0.08% taker)
+pub fn binance_fee(is_maker: bool, vip_level: u8) -> Decimal {
+    match vip_level {
+        0 => Decimal::from(1) / Decimal::from(1000), // 0.1% for both
+        1 => {
+            if is_maker {
+                Decimal::from(9) / Decimal::from(10000) // 0.09%
+            } else {
+                Decimal::from(1) / Decimal::from(1000) // 0.1%
+            }
+        }
+        2 => {
+            if is_maker {
+                Decimal::from(8) / Decimal::from(10000) // 0.08%
+            } else {
+                Decimal::from(1) / Decimal::from(1000) // 0.1%
+            }
+        }
+        _ => {
+            // VIP 3+ simplified
+            if is_maker {
+                Decimal::from(6) / Decimal::from(10000) // 0.06%
+            } else {
+                Decimal::from(8) / Decimal::from(10000) // 0.08%
+            }
+        }
+    }
 }
 
 #[cfg(test)]

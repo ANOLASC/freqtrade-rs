@@ -79,7 +79,6 @@ pub struct BinanceExchange {
     _api_key: String,
     _api_secret: String,
     base_url: String,
-    futures_base_url: String,
     client: reqwest::Client,
 }
 
@@ -89,15 +88,13 @@ impl BinanceExchange {
             _api_key: api_key,
             _api_secret: api_secret,
             base_url: "https://api.binance.com".to_string(),
-            futures_base_url: "https://fapi.binance.com".to_string(),
             client: reqwest::Client::new(),
         }
     }
 
     #[cfg(test)]
     pub fn with_base_url(mut self, url: String) -> Self {
-        self.base_url = url.clone();
-        self.futures_base_url = url;
+        self.base_url = url;
         self
     }
 
@@ -120,6 +117,39 @@ impl BinanceExchange {
         let signature = hex::encode(result.into_bytes());
 
         format!("{}&signature={}", query_with_timestamp, signature)
+    }
+}
+
+/// Helper function to parse Binance order status string to OrderStatus enum
+fn parse_order_status(status: &str) -> OrderStatus {
+    match status {
+        "NEW" => OrderStatus::New,
+        "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
+        "FILLED" => OrderStatus::Filled,
+        "CANCELED" => OrderStatus::Canceled,
+        "REJECTED" => OrderStatus::Rejected,
+        "EXPIRED" => OrderStatus::Expired,
+        _ => OrderStatus::New,
+    }
+}
+
+/// Helper function to parse Binance trade side string to TradeSide enum
+fn parse_trade_side(side: &str) -> TradeSide {
+    match side {
+        "BUY" => TradeSide::Buy,
+        "SELL" => TradeSide::Sell,
+        _ => TradeSide::Buy,
+    }
+}
+
+/// Helper function to parse Binance order type string to OrderType enum
+fn parse_order_type(order_type: &str) -> OrderType {
+    match order_type {
+        "MARKET" => OrderType::Market,
+        "LIMIT" => OrderType::Limit,
+        "STOP_LOSS_LIMIT" => OrderType::StopLimit,
+        "STOP_LOSS" => OrderType::StopMarket,
+        _ => OrderType::Market,
     }
 }
 
@@ -229,8 +259,7 @@ impl Exchange for BinanceExchange {
     async fn fetch_positions(&self) -> Result<Vec<Position>> {
         let query = String::new();
         let signed_query = self.sign_query(query);
-        // Use Futures API endpoint for position data
-        let url = format!("{}/fapi/v2/account?{}", self.futures_base_url, signed_query);
+        let url = format!("{}/api/v3/account?{}", self.get_base_url(), signed_query);
 
         let response = self
             .client
@@ -241,7 +270,7 @@ impl Exchange for BinanceExchange {
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Exchange(format!("Binance Futures error: {}", error_text)));
+            return Err(AppError::Exchange(format!("Binance error: {}", error_text)));
         }
 
         let data: serde_json::Value = response.json().await?;
@@ -251,43 +280,31 @@ impl Exchange for BinanceExchange {
         if let Some(positions_arr) = positions_json.as_array() {
             for pos in positions_arr {
                 let symbol = pos["symbol"].as_str().unwrap_or("").to_string();
-                let position_amt: Decimal = pos["positionAmt"]
+                let notional = pos["notional"].as_str().unwrap_or("0").parse().unwrap_or(Decimal::ZERO);
+                let entry_price = pos["entryPrice"]
                     .as_str()
                     .unwrap_or("0")
                     .parse()
                     .unwrap_or(Decimal::ZERO);
-                let entry_price: Decimal = pos["entryPrice"]
-                    .as_str()
-                    .unwrap_or("0")
-                    .parse()
-                    .unwrap_or(Decimal::ZERO);
-                let mark_price: Decimal = pos["markPrice"]
-                    .as_str()
-                    .unwrap_or("0")
-                    .parse()
-                    .unwrap_or(Decimal::ZERO);
-                let unrealized_pnl: Decimal = pos["unrealizedProfit"]
+                let mark_price = pos["markPrice"]
                     .as_str()
                     .unwrap_or("0")
                     .parse()
                     .unwrap_or(Decimal::ZERO);
 
                 // Only include non-zero positions
-                if position_amt != Decimal::ZERO {
-                    let side = if position_amt > Decimal::ZERO {
+                if notional != Decimal::ZERO {
+                    let side = if notional > Decimal::ZERO {
                         TradeSide::Buy
                     } else {
                         TradeSide::Sell
                     };
-                    let size = position_amt.abs();
-
-                    // Calculate percentage: (unrealized_pnl / position_value) * 100
-                    let position_value = size * entry_price;
-                    let percentage = if position_value > Decimal::ZERO {
-                        (unrealized_pnl / position_value) * Decimal::from(100)
-                    } else {
-                        Decimal::ZERO
-                    };
+                    let size = notional.abs();
+                    let unrealized_pnl = pos["unrealizedProfit"]
+                        .as_str()
+                        .unwrap_or("0")
+                        .parse()
+                        .unwrap_or(Decimal::ZERO);
 
                     positions.push(Position {
                         symbol,
@@ -296,7 +313,7 @@ impl Exchange for BinanceExchange {
                         entry_price,
                         mark_price,
                         unrealized_pnl,
-                        percentage,
+                        percentage: Decimal::ZERO,
                     });
                 }
             }
@@ -349,15 +366,7 @@ impl Exchange for BinanceExchange {
 
         let data: BinanceOrderResponse = response.json().await?;
 
-        let status = match data.status.as_str() {
-            "NEW" => OrderStatus::New,
-            "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
-            "FILLED" => OrderStatus::Filled,
-            "CANCELED" => OrderStatus::Canceled,
-            "REJECTED" => OrderStatus::Rejected,
-            "EXPIRED" => OrderStatus::Expired,
-            _ => OrderStatus::New,
-        };
+        let status = parse_order_status(&data.status);
 
         let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
         let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
@@ -420,29 +429,11 @@ impl Exchange for BinanceExchange {
 
         let data: BinanceOrderResponse = response.json().await?;
 
-        let status = match data.status.as_str() {
-            "NEW" => OrderStatus::New,
-            "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
-            "FILLED" => OrderStatus::Filled,
-            "CANCELED" => OrderStatus::Canceled,
-            "REJECTED" => OrderStatus::Rejected,
-            "EXPIRED" => OrderStatus::Expired,
-            _ => OrderStatus::New,
-        };
+        let status = parse_order_status(&data.status);
 
-        let side = match data.side.as_str() {
-            "BUY" => TradeSide::Buy,
-            "SELL" => TradeSide::Sell,
-            _ => TradeSide::Buy,
-        };
+        let side = parse_trade_side(&data.side);
 
-        let order_type = match data.order_type.as_str() {
-            "MARKET" => OrderType::Market,
-            "LIMIT" => OrderType::Limit,
-            "STOP_LOSS_LIMIT" => OrderType::StopLimit,
-            "STOP_LOSS" => OrderType::StopMarket,
-            _ => OrderType::Market,
-        };
+        let order_type = parse_order_type(&data.order_type);
 
         let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
         let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
@@ -489,29 +480,11 @@ impl Exchange for BinanceExchange {
 
         let mut orders = Vec::new();
         for data in orders_data {
-            let status = match data.status.as_str() {
-                "NEW" => OrderStatus::New,
-                "PARTIALLY_FILLED" => OrderStatus::PartiallyFilled,
-                "FILLED" => OrderStatus::Filled,
-                "CANCELED" => OrderStatus::Canceled,
-                "REJECTED" => OrderStatus::Rejected,
-                "EXPIRED" => OrderStatus::Expired,
-                _ => OrderStatus::New,
-            };
+            let status = parse_order_status(&data.status);
 
-            let side = match data.side.as_str() {
-                "BUY" => TradeSide::Buy,
-                "SELL" => TradeSide::Sell,
-                _ => TradeSide::Buy,
-            };
+            let side = parse_trade_side(&data.side);
 
-            let order_type = match data.order_type.as_str() {
-                "MARKET" => OrderType::Market,
-                "LIMIT" => OrderType::Limit,
-                "STOP_LOSS_LIMIT" => OrderType::StopLimit,
-                "STOP_LOSS" => OrderType::StopMarket,
-                _ => OrderType::Market,
-            };
+            let order_type = parse_order_type(&data.order_type);
 
             let amount = data.orig_qty.parse().unwrap_or(Decimal::ZERO);
             let filled = data.executed_qty.parse().unwrap_or(Decimal::ZERO);
