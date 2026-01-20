@@ -16,6 +16,5 @@ pub mod strategy;
 pub mod tests;
 pub mod trade;
 pub mod types;
-pub mod utils;
 
 pub use error::{AppError, Result};
