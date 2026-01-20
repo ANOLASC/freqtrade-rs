@@ -1,11 +1,33 @@
 use crate::error::{AppError, Result};
 use crate::types::*;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use sqlx::Row;
 use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// Parse timeframe string (e.g., "1m", "5m", "1h", "4h", "1d", "1w") to Duration
+fn parse_timeframe_to_duration(timeframe: &str) -> Duration {
+    match timeframe {
+        "1m" | "1 Minute" => Duration::minutes(1),
+        "3m" | "3 Minutes" => Duration::minutes(3),
+        "5m" | "5 Minutes" => Duration::minutes(5),
+        "15m" | "15 Minutes" => Duration::minutes(15),
+        "30m" | "30 Minutes" => Duration::minutes(30),
+        "1h" | "1 Hour" => Duration::hours(1),
+        "2h" | "2 Hours" => Duration::hours(2),
+        "4h" | "4 Hours" => Duration::hours(4),
+        "6h" | "6 Hours" => Duration::hours(6),
+        "8h" | "8 Hours" => Duration::hours(8),
+        "12h" | "12 Hours" => Duration::hours(12),
+        "1d" | "1 Day" => Duration::days(1),
+        "3d" | "3 Days" => Duration::days(3),
+        "1w" | "1 Week" => Duration::weeks(1),
+        "1M" | "1 Month" => Duration::days(30),
+        _ => Duration::hours(1), // Default to 1h
+    }
+}
 
 #[derive(Clone)]
 pub struct Repository {
@@ -88,12 +110,15 @@ impl Repository {
     }
 
     pub async fn save_klines(&self, pair: &str, timeframe: &str, klines: &[OHLCV]) -> Result<()> {
+        let timeframe_duration = parse_timeframe_to_duration(timeframe);
         let mut tx = self.pool.begin().await?;
         for kline in klines {
+            let close_time = kline.timestamp + timeframe_duration;
             sqlx::query("INSERT OR REPLACE INTO klines (pair, timeframe, open_time, open, high, low, close, volume, close_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
                 .bind(pair).bind(timeframe).bind(kline.timestamp.to_rfc3339())
                 .bind(kline.open.to_string()).bind(kline.high.to_string()).bind(kline.low.to_string())
                 .bind(kline.close.to_string()).bind(kline.volume.to_string())
+                .bind(close_time.to_rfc3339())
                 .execute(&mut *tx).await?;
         }
         tx.commit().await?;

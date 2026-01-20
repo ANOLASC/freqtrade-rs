@@ -3,7 +3,7 @@ use crate::error::Result;
 use crate::types::*;
 use crate::{exchange, persistence, risk, strategy};
 use freqtrade_rs_lib::backtest::BacktestConfig;
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use std::sync::Arc;
 use tauri::State;
 
@@ -203,7 +203,7 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
             peak_balance = current_balance;
         }
         let drawdown = (peak_balance - current_balance) / peak_balance * rust_decimal::Decimal::from(100_i64);
-        if drawdown > rust_decimal::Decimal::try_from(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO) {
+        if drawdown > rust_decimal::Decimal::from_f64(max_drawdown).unwrap_or(rust_decimal::Decimal::ZERO) {
             max_drawdown = drawdown.to_f64().unwrap_or(0.0);
         }
     }
