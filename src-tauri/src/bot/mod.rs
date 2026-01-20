@@ -131,9 +131,18 @@ impl TradingBot {
                     match self.exchange.create_order(order_req).await {
                         Ok(order) => {
                             eprintln!("Sell order executed: {:?}", order);
-                            // Update Trade
                             // Use order price if available, otherwise fallback to current candle close
-                            let close_price = order.price.unwrap_or(klines.last().unwrap().close);
+                            let close_price = match order.price {
+                                Some(p) => p,
+                                None => {
+                                    klines
+                                        .last()
+                                        .ok_or_else(|| {
+                                            crate::error::AppError::InvalidInput("No klines data available".to_string())
+                                        })?
+                                        .close
+                                }
+                            };
 
                             let mut updated_trade = trade.clone();
                             updated_trade.is_open = false;
@@ -183,17 +192,17 @@ impl TradingBot {
                 }
 
                 // 计算买入金额和数量
-                let current_price = klines.last().unwrap().close;
+                let current_price = klines
+                    .last()
+                    .ok_or_else(|| crate::error::AppError::InvalidInput("No klines data available".to_string()))?
+                    .close;
                 let stake_amount_f64 = self.config.stake_amount;
-                let stake_amount_decimal = Decimal::try_from(stake_amount_f64)
-                    .unwrap_or(Decimal::from(0));
-                
+                let stake_amount_decimal = Decimal::try_from(stake_amount_f64).unwrap_or(Decimal::from(0));
+
                 let amount = if stake_amount_decimal > Decimal::ZERO {
                     stake_amount_decimal / current_price
                 } else {
-                    return Err(crate::error::AppError::InvalidInput(
-                        "Invalid stake amount".to_string(),
-                    ));
+                    return Err(crate::error::AppError::InvalidInput("Invalid stake amount".to_string()));
                 };
 
                 // dry_run 模式
@@ -215,7 +224,7 @@ impl TradingBot {
                         close_date: None,
                         amount,
                         stake_amount: stake_amount_decimal,
-                        strategy: "SimpleStrategy".to_string(),
+                        strategy: self.strategy.name().to_string(),
                         timeframe: Timeframe::OneHour,
                         stop_loss: None,
                         take_profit: None,
@@ -232,7 +241,10 @@ impl TradingBot {
                 }
 
                 // 实盘模式 - 执行买入
-                eprintln!("Executing buy for {} - Amount: {} @ Price: {}", pair, amount, current_price);
+                eprintln!(
+                    "Executing buy for {} - Amount: {} @ Price: {}",
+                    pair, amount, current_price
+                );
                 let order_req = OrderRequest {
                     symbol: pair.to_string(),
                     side: TradeSide::Buy,
@@ -245,10 +257,14 @@ impl TradingBot {
                     Ok(order) => {
                         eprintln!("Buy order executed: {:?}", order);
 
-                        // 计算实际成交价格
-                        let avg_price = order
-                            .price
-                            .unwrap_or_else(|| order.filled * current_price / order.amount);
+                        // 计算实际成交价格 (避免除零)
+                        let avg_price = order.price.unwrap_or_else(|| {
+                            if order.amount > Decimal::ZERO {
+                                order.filled * current_price / order.amount
+                            } else {
+                                current_price
+                            }
+                        });
 
                         // 创建交易记录
                         let trade = Trade {
@@ -262,7 +278,7 @@ impl TradingBot {
                             close_date: None,
                             amount: order.filled,
                             stake_amount: stake_amount_decimal,
-                            strategy: "SimpleStrategy".to_string(),
+                            strategy: self.strategy.name().to_string(),
                             timeframe: Timeframe::OneHour,
                             stop_loss: None,
                             take_profit: None,
@@ -277,10 +293,7 @@ impl TradingBot {
                     }
                     Err(e) => {
                         eprintln!("Failed to execute buy order: {}", e);
-                        return Err(crate::error::AppError::Exchange(format!(
-                            "Buy order failed: {}",
-                            e
-                        )));
+                        return Err(crate::error::AppError::Exchange(format!("Buy order failed: {}", e)));
                     }
                 }
             }
