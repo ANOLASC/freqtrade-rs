@@ -6,7 +6,7 @@ mod trade_tests {
     use rust_decimal::Decimal;
     use std::str::FromStr;
 
-    use crate::types::{Trade, TradeSide};
+    use crate::types::Trade;
     use chrono::Utc;
 
     // ============ Basic Trade Tests ============
