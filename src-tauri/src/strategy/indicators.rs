@@ -31,8 +31,8 @@ impl SMA {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
     use chrono::Utc;
+    use std::str::FromStr;
 
     fn create_ohlcv(close_prices: Vec<&str>) -> Vec<OHLCV> {
         close_prices

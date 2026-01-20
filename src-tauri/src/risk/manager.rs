@@ -94,7 +94,7 @@ pub struct StopReason {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::risk::protection::{ProtectionReturn, IProtection};
+    use crate::risk::protection::{IProtection, ProtectionReturn};
     use crate::types::Trade;
     use tempfile::tempdir;
 
@@ -104,10 +104,18 @@ mod tests {
     }
 
     impl IProtection for MockProtection {
-        fn name(&self) -> &str { "MockProtection" }
-        fn short_desc(&self) -> String { "Mock".to_string() }
-        fn has_global_stop(&self) -> bool { true }
-        fn has_local_stop(&self) -> bool { true }
+        fn name(&self) -> &str {
+            "MockProtection"
+        }
+        fn short_desc(&self) -> String {
+            "Mock".to_string()
+        }
+        fn has_global_stop(&self) -> bool {
+            true
+        }
+        fn has_local_stop(&self) -> bool {
+            true
+        }
 
         fn global_stop(&self, _date: DateTime<Utc>, _trades: &[Trade]) -> Option<ProtectionReturn> {
             if self.should_stop_global {
@@ -144,7 +152,10 @@ mod tests {
 
         let risk_manager = RiskManager::new(repo);
 
-        let protection = MockProtection { should_stop_global: true, should_stop_pair: false };
+        let protection = MockProtection {
+            should_stop_global: true,
+            should_stop_pair: false,
+        };
         risk_manager.add_protection(Box::new(protection)).await.unwrap();
 
         let result = risk_manager.check_global_stop().await.unwrap();
@@ -160,7 +171,10 @@ mod tests {
 
         let risk_manager = RiskManager::new(repo);
 
-        let protection = MockProtection { should_stop_global: false, should_stop_pair: true };
+        let protection = MockProtection {
+            should_stop_global: false,
+            should_stop_pair: true,
+        };
         risk_manager.add_protection(Box::new(protection)).await.unwrap();
 
         let result = risk_manager.check_pair_stop("BTC/USDT").await.unwrap();

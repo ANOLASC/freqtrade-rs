@@ -279,11 +279,7 @@ mod tests {
             || async {
                 let mut c = counter_clone.lock().await;
                 *c += 1;
-                if *c < 2 {
-                    Err("fail")
-                } else {
-                    Ok("success")
-                }
+                if *c < 2 { Err("fail") } else { Ok("success") }
             },
             config,
             |_| true,
