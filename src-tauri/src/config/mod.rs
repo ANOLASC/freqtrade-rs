@@ -188,7 +188,7 @@ mod tests {
     async fn test_default_config() {
         let config = AppConfig::default();
         assert_eq!(config.bot.max_open_trades, 3);
-        assert_eq!(config.bot.dry_run, true);
+        assert!(config.bot.dry_run);
         assert_eq!(config.exchange.name, "binance");
     }
 
@@ -212,7 +212,7 @@ mod tests {
 
         let config: AppConfig = toml::from_str(config_str).unwrap();
         assert_eq!(config.bot.max_open_trades, 5);
-        assert_eq!(config.bot.dry_run, false);
+        assert!(!config.bot.dry_run);
         assert_eq!(config.bot.stake_amount, 200.0);
         assert_eq!(config.exchange.key, "test_key");
         assert_eq!(config.exchange.secret, "test_secret");

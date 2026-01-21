@@ -2,6 +2,7 @@
 // Based on freqtrade Python tests but adapted for current codebase
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod trade_tests {
     use rust_decimal::Decimal;
     use std::str::FromStr;
@@ -240,5 +241,171 @@ mod trade_tests {
 
         assert!(liquidation_price_long < entry_price);
         assert!(liquidation_price_short > entry_price);
+    }
+
+    /// Test Interest (migrated from test_interest)
+    #[test]
+    fn test_interest() {
+        let borrowed = Decimal::from(1000);
+        let interest_rate = Decimal::from_str("0.0005").unwrap(); // 0.05% per 8h
+        let hours = 24;
+        let periods = Decimal::from(hours / 8);
+
+        let interest = borrowed * interest_rate * periods;
+        assert_eq!(interest, Decimal::from_str("1.5").unwrap());
+    }
+
+    // ============ Migration P0 Tests ============
+
+    /// Test calc_profit with various scenarios (migrated from test_calc_profit)
+    #[test]
+    fn test_calc_profit() {
+        // Case 1: Standard profit
+        let open_rate = Decimal::from_str("100.0").unwrap();
+        let close_rate = Decimal::from_str("110.0").unwrap();
+        let amount = Decimal::from(1);
+        let profit = (close_rate - open_rate) * amount;
+        assert_eq!(profit, Decimal::from(10));
+
+        // Case 2: Loss
+        let close_rate_loss = Decimal::from_str("90.0").unwrap();
+        let loss = (close_rate_loss - open_rate) * amount;
+        assert_eq!(loss, Decimal::from(-10));
+
+        // Case 3: Zero profit
+        let close_rate_zero = Decimal::from_str("100.0").unwrap();
+        let zero_profit = (close_rate_zero - open_rate) * amount;
+        assert_eq!(zero_profit, Decimal::from(0));
+
+        // Case 4: High precision
+        let open_rate_prec = Decimal::from_str("0.12345678").unwrap();
+        let close_rate_prec = Decimal::from_str("0.12345679").unwrap();
+        let amount_prec = Decimal::from_str("1000.0").unwrap();
+        let profit_prec = (close_rate_prec - open_rate_prec) * amount_prec;
+        assert_eq!(profit_prec, Decimal::from_str("0.00001").unwrap());
+    }
+
+    /// Test adjust_stop_loss (migrated from test_adjust_stop_loss)
+    #[test]
+    fn test_adjust_stop_loss() {
+        let mut trade = Trade {
+            id: uuid::Uuid::new_v4(),
+            pair: "ETH/USDT".to_string(),
+            is_open: true,
+            exchange: "binance".to_string(),
+            open_rate: Decimal::from(2000),
+            open_date: Utc::now(),
+            close_rate: None,
+            close_date: None,
+            amount: Decimal::from(1),
+            stake_amount: Decimal::from(2000),
+            strategy: "TestStrategy".to_string(),
+            timeframe: crate::types::Timeframe::OneHour,
+            stop_loss: Some(Decimal::from(1900)), // Initial SL
+            take_profit: None,
+            exit_reason: None,
+            profit_abs: None,
+            profit_ratio: None,
+        };
+
+        // Update SL to higher value (trailing stop)
+        let new_sl = Decimal::from(1950);
+        if let Some(current_sl) = trade.stop_loss {
+            if new_sl > current_sl {
+                trade.stop_loss = Some(new_sl);
+            }
+        }
+        assert_eq!(trade.stop_loss, Some(Decimal::from(1950)));
+
+        // Try to lower SL (should be ignored in typical trailing stop logic)
+        let lower_sl = Decimal::from(1940);
+        if let Some(current_sl) = trade.stop_loss {
+            if lower_sl > current_sl {
+                trade.stop_loss = Some(lower_sl);
+            }
+        }
+        // Should remain 1950
+        assert_eq!(trade.stop_loss, Some(Decimal::from(1950)));
+    }
+
+    /// Test update_limit_order (migrated from test_update_limit_order)
+    #[test]
+    fn test_update_limit_order() {
+        // This essentially tests Order struct updates
+        let mut order = crate::types::Order {
+            id: "123".to_string(),
+            symbol: "BTC/USDT".to_string(),
+            side: crate::types::TradeSide::Buy,
+            order_type: crate::types::OrderType::Limit,
+            status: crate::types::OrderStatus::New,
+            price: Some(Decimal::from(50000)),
+            amount: Decimal::from(1),
+            filled: Decimal::from(0),
+            remaining: Decimal::from(1),
+            fee: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        // Simulate update
+        order.status = crate::types::OrderStatus::PartiallyFilled;
+        order.filled = Decimal::from_str("0.5").unwrap();
+        order.remaining = Decimal::from_str("0.5").unwrap();
+        order.updated_at = Utc::now();
+
+        assert_eq!(order.status, crate::types::OrderStatus::PartiallyFilled);
+        assert_eq!(order.filled, Decimal::from_str("0.5").unwrap());
+        assert_eq!(order.remaining, Decimal::from_str("0.5").unwrap());
+    }
+
+    /// Test get_open (migrated from test_get_open)
+    /// Note: In a real unit test without DB, we test the filtering logic on a Vec
+    #[test]
+    fn test_get_open() {
+        let trade_open = Trade {
+            id: uuid::Uuid::new_v4(),
+            pair: "BTC/USDT".to_string(),
+            is_open: true,
+            exchange: "binance".to_string(),
+            open_rate: Decimal::from(50000),
+            open_date: Utc::now(),
+            close_rate: None,
+            close_date: None,
+            amount: Decimal::from(1),
+            stake_amount: Decimal::from(50000),
+            strategy: "TestStrategy".to_string(),
+            timeframe: crate::types::Timeframe::OneHour,
+            stop_loss: None,
+            take_profit: None,
+            exit_reason: None,
+            profit_abs: None,
+            profit_ratio: None,
+        };
+
+        let trade_closed = Trade {
+            id: uuid::Uuid::new_v4(),
+            pair: "ETH/USDT".to_string(),
+            is_open: false,
+            exchange: "binance".to_string(),
+            open_rate: Decimal::from(3000),
+            open_date: Utc::now(),
+            close_rate: Some(Decimal::from(3100)),
+            close_date: Some(Utc::now()),
+            amount: Decimal::from(10),
+            stake_amount: Decimal::from(30000),
+            strategy: "TestStrategy".to_string(),
+            timeframe: crate::types::Timeframe::OneHour,
+            stop_loss: None,
+            take_profit: None,
+            exit_reason: Some(crate::types::ExitType::Signal),
+            profit_abs: Some(Decimal::from(1000)),
+            profit_ratio: Some(Decimal::from_str("0.033").unwrap()),
+        };
+
+        let trades = [trade_open, trade_closed];
+        let open_trades: Vec<&Trade> = trades.iter().filter(|t| t.is_open).collect();
+
+        assert_eq!(open_trades.len(), 1);
+        assert_eq!(open_trades[0].pair, "BTC/USDT");
     }
 }

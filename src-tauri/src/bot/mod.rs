@@ -95,6 +95,7 @@ impl TradingBot {
         *self.status.read().await
     }
 
+    #[cfg_attr(test, visibility::make(pub))]
     async fn process_cycle(&self, pair: &str, timeframe: &str) -> Result<()> {
         // 获取 K线数据
         let klines = self.exchange.fetch_ohlcv(pair, timeframe, 500).await?;
@@ -302,3 +303,6 @@ impl TradingBot {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests;

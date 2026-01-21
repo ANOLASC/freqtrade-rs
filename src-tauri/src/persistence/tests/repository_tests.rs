@@ -2,6 +2,7 @@
 // Placeholder tests for repository functionality
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod repository_tests {
     use rust_decimal::Decimal;
     use std::str::FromStr;
@@ -11,6 +12,7 @@ mod repository_tests {
     /// Placeholder test for repository functionality
     /// Full implementation requires SQLx with SQLite database
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_repository_placeholder() {
         // This is a placeholder test
         // The actual repository tests require database setup
