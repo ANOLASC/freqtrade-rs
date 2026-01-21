@@ -12,6 +12,14 @@ pub struct BotConfig {
     pub dry_run: bool,
     pub dry_run_wallet: f64,
     pub process_only_new_candles: bool,
+    #[serde(default)]
+    pub trading_pairs: Vec<String>,
+    #[serde(default = "default_timeframe")]
+    pub timeframe: String,
+}
+
+fn default_timeframe() -> String {
+    "1h".to_string()
 }
 
 impl Default for BotConfig {
@@ -23,6 +31,8 @@ impl Default for BotConfig {
             dry_run: true,
             dry_run_wallet: 10000.0,
             process_only_new_candles: true,
+            trading_pairs: vec![],
+            timeframe: default_timeframe(),
         }
     }
 }
