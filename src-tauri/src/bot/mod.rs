@@ -36,9 +36,6 @@ impl TradingBot {
     pub async fn start(&self) -> Result<()> {
         *self.status.write().await = BotStatus::Running;
 
-        let default_pair = "BTCUSDT";
-        let default_timeframe = "1h";
-
         loop {
             let status = *self.status.read().await;
 
@@ -54,7 +51,7 @@ impl TradingBot {
                         break;
                     }
 
-                    if let Err(e) = self.process_cycle(default_pair, default_timeframe).await {
+                    if let Err(e) = self.process_all_pairs().await {
                         eprintln!("Error processing cycle: {}", e);
                         *self.status.write().await = BotStatus::Error;
                         break;
@@ -93,6 +90,16 @@ impl TradingBot {
 
     pub async fn get_status(&self) -> BotStatus {
         *self.status.read().await
+    }
+
+    // New method to process all configured pairs
+    #[cfg_attr(test, visibility::make(pub))]
+    async fn process_all_pairs(&self) -> Result<()> {
+        let pairs = self.config.trading_pairs.clone();
+        for pair in pairs {
+            self.process_cycle(&pair, &self.config.timeframe).await?;
+        }
+        Ok(())
     }
 
     #[cfg_attr(test, visibility::make(pub))]

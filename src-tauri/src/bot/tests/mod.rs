@@ -307,4 +307,24 @@ mod bot_tests {
         assert_eq!(orders.len(), 1);
         assert_eq!(orders[0].side, TradeSide::Sell);
     }
+
+    #[tokio::test]
+    async fn test_process_all_pairs() {
+        let mut ctx = setup_bot(true).await; // Dry run
+        ctx.bot.config.trading_pairs = vec!["BTC/USDT".to_string(), "ETH/USDT".to_string()];
+
+        // Setup buy signals
+        ctx.strategy.set_buy_signal().await;
+
+        // Execute process_all_pairs
+        ctx.bot.process_all_pairs().await.unwrap();
+
+        // Verify trades created for both pairs
+        let open_trades = ctx.repository.get_open_trades().await.unwrap();
+        assert_eq!(open_trades.len(), 2);
+
+        let pairs: Vec<String> = open_trades.iter().map(|t| t.pair.clone()).collect();
+        assert!(pairs.contains(&"BTC/USDT".to_string()));
+        assert!(pairs.contains(&"ETH/USDT".to_string()));
+    }
 }
