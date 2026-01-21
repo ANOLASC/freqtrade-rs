@@ -1,6 +1,7 @@
 use crate::error::Result;
 use crate::types::*;
 use chrono::Utc;
+use futures::future::try_join_all;
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -96,9 +97,30 @@ impl TradingBot {
     #[cfg_attr(test, visibility::make(pub))]
     async fn process_all_pairs(&self) -> Result<()> {
         let pairs = self.config.trading_pairs.clone();
-        for pair in pairs {
-            self.process_cycle(&pair, &self.config.timeframe).await?;
+
+        if pairs.is_empty() {
+            return Err(crate::error::AppError::Config("No trading_pairs configured".to_string()).into());
         }
+
+        let futures = pairs.iter().map(|pair| {
+            let pair = pair.trim();
+            async move {
+                if pair.is_empty() || pair.contains(char::is_whitespace) {
+                    return Err(crate::error::AppError::Config(format!("Invalid trading pair: {:?}", pair)));
+                }
+                match self.process_cycle(pair, &self.config.timeframe).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        eprintln!("Error processing pair {}: {}", pair, e);
+                        // Continue processing other pairs even if one fails
+                        Ok(())
+                    }
+                }
+            }
+        });
+
+        try_join_all(futures).await?;
+
         Ok(())
     }
 

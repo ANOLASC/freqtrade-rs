@@ -323,8 +323,10 @@ mod bot_tests {
         let open_trades = ctx.repository.get_open_trades().await.unwrap();
         assert_eq!(open_trades.len(), 2);
 
-        let pairs: Vec<String> = open_trades.iter().map(|t| t.pair.clone()).collect();
-        assert!(pairs.contains(&"BTC/USDT".to_string()));
-        assert!(pairs.contains(&"ETH/USDT".to_string()));
+        use std::collections::HashSet;
+        let pairs: HashSet<String> = open_trades.iter().map(|t| t.pair.clone()).collect();
+        let expected_pairs: HashSet<String> =
+            ["BTC/USDT".to_string(), "ETH/USDT".to_string()].into();
+        assert_eq!(pairs, expected_pairs);
     }
 }
