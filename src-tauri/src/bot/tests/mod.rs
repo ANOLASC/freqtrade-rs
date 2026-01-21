@@ -325,8 +325,7 @@ mod bot_tests {
 
         use std::collections::HashSet;
         let pairs: HashSet<String> = open_trades.iter().map(|t| t.pair.clone()).collect();
-        let expected_pairs: HashSet<String> =
-            ["BTC/USDT".to_string(), "ETH/USDT".to_string()].into();
+        let expected_pairs: HashSet<String> = ["BTC/USDT".to_string(), "ETH/USDT".to_string()].into();
         assert_eq!(pairs, expected_pairs);
     }
 }

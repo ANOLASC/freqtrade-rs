@@ -99,14 +99,17 @@ impl TradingBot {
         let pairs = self.config.trading_pairs.clone();
 
         if pairs.is_empty() {
-            return Err(crate::error::AppError::Config("No trading_pairs configured".to_string()).into());
+            return Err(crate::error::AppError::Config("No trading_pairs configured".to_string()));
         }
 
         let futures = pairs.iter().map(|pair| {
             let pair = pair.trim();
             async move {
                 if pair.is_empty() || pair.contains(char::is_whitespace) {
-                    return Err(crate::error::AppError::Config(format!("Invalid trading pair: {:?}", pair)));
+                    return Err(crate::error::AppError::Config(format!(
+                        "Invalid trading pair: {:?}",
+                        pair
+                    )));
                 }
                 match self.process_cycle(pair, &self.config.timeframe).await {
                     Ok(_) => Ok(()),
