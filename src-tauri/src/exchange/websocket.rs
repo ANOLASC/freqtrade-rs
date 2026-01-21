@@ -6,7 +6,7 @@
 use crate::error::{AppError, Result};
 use crate::types::{Balance, Order, Position};
 use chrono::{DateTime, Utc};
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -162,21 +162,18 @@ pub struct WebSocketManager {
 
 impl WebSocketManager {
     /// Create a new WebSocket manager
-    pub fn new(config: WebSocketConfig) -> Self {
-        let (event_tx, _) = tokio::sync::mpsc::channel(100);
-        Self {
-            state: Arc::new(RwLock::new(ConnectionState::Disconnected)),
-            account_state: Arc::new(RwLock::new(AccountState::default())),
-            config,
-            event_tx: Arc::new(event_tx),
-            running: Arc::new(RwLock::new(false)),
-        }
-    }
-
-    /// Get the event receiver for state changes
-    pub fn event_rx(&self) -> tokio::sync::mpsc::Receiver<WebSocketEvent> {
-        let (_tx, rx) = tokio::sync::mpsc::channel(100);
-        rx
+    pub fn new(config: WebSocketConfig) -> (Self, tokio::sync::mpsc::Receiver<WebSocketEvent>) {
+        let (event_tx, rx) = tokio::sync::mpsc::channel(100);
+        (
+            Self {
+                state: Arc::new(RwLock::new(ConnectionState::Disconnected)),
+                account_state: Arc::new(RwLock::new(AccountState::default())),
+                config,
+                event_tx: Arc::new(event_tx),
+                running: Arc::new(RwLock::new(false)),
+            },
+            rx,
+        )
     }
 
     /// Get the current connection state
@@ -191,6 +188,22 @@ impl WebSocketManager {
 
     /// Build the WebSocket URL with stream parameters
     fn build_url(&self, streams: &[BinanceStream]) -> Result<Url> {
+        if streams.is_empty() {
+            return Err(AppError::Config("WebSocket streams cannot be empty".to_string()));
+        }
+
+        if streams.iter().any(|s| {
+            matches!(
+                s,
+                BinanceStream::Account | BinanceStream::Orders | BinanceStream::AllOrders
+            )
+        }) && self.config.api_key.is_none()
+        {
+            return Err(AppError::Config(
+                "API key (listen key) required for private Binance streams".into(),
+            ));
+        }
+
         let stream_params: Vec<String> = streams
             .iter()
             .map(|s| match s {
@@ -206,8 +219,13 @@ impl WebSocketManager {
             })
             .collect();
 
-        let url = format!("{}/{}", self.config.endpoint, stream_params.join("/"));
-        Url::parse(&url).map_err(|e| AppError::Config(format!("Invalid WebSocket URL: {}", e)))
+        let mut url = Url::parse(&self.config.endpoint)
+            .map_err(|e| AppError::Config(format!("Invalid WebSocket base URL: {}", e)))?;
+
+        url.query_pairs_mut()
+            .append_pair("streams", &stream_params.join("/"));
+
+        Ok(url)
     }
 
     /// Connect to WebSocket and start receiving updates
@@ -266,8 +284,13 @@ impl WebSocketManager {
                     .await;
             }
 
-            match connect_async(&url).await {
-                Ok((ws_stream, _)) => {
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(self.config.connect_timeout_secs),
+                connect_async(&url),
+            )
+            .await
+            {
+                Ok(Ok((ws_stream, _))) => {
                     attempt = 0;
                     {
                         let mut state = self.state.write().await;
@@ -275,26 +298,36 @@ impl WebSocketManager {
                     }
                     let _ = self
                         .event_tx
-                        .send(WebSocketEvent::ConnectionStateChanged(ConnectionState::Connected))
+                        .send(WebSocketEvent::ConnectionStateChanged(
+                            ConnectionState::Connected,
+                        ))
                         .await;
 
-                    let (_write, mut read) = ws_stream.split();
+                    let (mut write, mut read) = ws_stream.split();
                     let event_tx = self.event_tx.clone();
                     let account_state = self.account_state.clone();
 
                     while let Some(msg) = read.next().await {
                         match msg {
                             Ok(Message::Text(text)) => {
-                                if let Err(e) = Self::handle_message(&text, &event_tx, &account_state).await {
-                                    let _ = event_tx.send(WebSocketEvent::Error(e.to_string())).await;
+                                if let Err(e) =
+                                    Self::handle_message(&text, &event_tx, &account_state).await
+                                {
+                                    let _ =
+                                        event_tx.send(WebSocketEvent::Error(e.to_string())).await;
                                 }
                             }
-                            Ok(Message::Ping(_)) => {}
+                            Ok(Message::Ping(payload)) => {
+                                // Keep connection alive by answering pings.
+                                let _ = write.send(Message::Pong(payload)).await;
+                            }
                             Ok(Message::Close(_)) => {
                                 break;
                             }
                             Err(e) => {
-                                let _ = event_tx.send(WebSocketEvent::Error(format!("Read error: {}", e))).await;
+                                let _ = event_tx
+                                    .send(WebSocketEvent::Error(format!("Read error: {}", e)))
+                                    .await;
                                 break;
                             }
                             _ => {}
@@ -302,14 +335,21 @@ impl WebSocketManager {
 
                         // Check if we should stop
                         if !*self.running.read().await {
+                            let _ = write.send(Message::Close(None)).await;
                             break;
                         }
                     }
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     let _ = self
                         .event_tx
                         .send(WebSocketEvent::Error(format!("Connection error: {}", e)))
+                        .await;
+                }
+                Err(_) => {
+                    let _ = self
+                        .event_tx
+                        .send(WebSocketEvent::Error("Connection timed out".into()))
                         .await;
                 }
             }
@@ -335,51 +375,68 @@ impl WebSocketManager {
         event_tx: &Arc<tokio::sync::mpsc::Sender<WebSocketEvent>>,
         account_state: &Arc<RwLock<AccountState>>,
     ) -> Result<()> {
-        if let Ok(msg) = serde_json::from_str::<BinanceWebSocketMessage>(text) {
-            match msg {
-                BinanceWebSocketMessage::AccountUpdate { u: _, B: balances } => {
-                    for balance in balances {
-                        let decimal_balance = Balance {
-                            currency: balance.a,
-                            free: balance.f.parse().unwrap_or_default(),
-                            used: balance.l.parse().unwrap_or_default(),
-                            total: balance.f.parse::<Decimal>().unwrap_or_default()
-                                + balance.l.parse::<Decimal>().unwrap_or_default(),
-                        };
-                        let _ = event_tx.send(WebSocketEvent::BalanceUpdate(decimal_balance)).await;
-                    }
-                    {
-                        let mut state = account_state.write().await;
-                        state.last_update = Some(Utc::now());
-                    }
-                }
-                BinanceWebSocketMessage::OrderUpdate(params) => {
-                    let order = Order {
-                        id: params.i.to_string(),
-                        symbol: params.s,
-                        side: parse_trade_side(&params.S),
-                        order_type: parse_order_type(&params.o),
-                        status: parse_order_status(&params.X),
-                        price: params.p.parse().ok(),
-                        amount: params.q.parse().unwrap_or_default(),
-                        filled: params.z.parse().unwrap_or_default(),
-                        remaining: params
-                            .q
-                            .parse::<Decimal>()
-                            .unwrap_or_default()
-                            .saturating_sub(params.z.parse().unwrap_or_default()),
-                        fee: params.n.parse().ok(),
-                        created_at: DateTime::from_timestamp_millis(params.T).unwrap_or_else(Utc::now),
-                        updated_at: Utc::now(),
+        let msg = serde_json::from_str::<BinanceWebSocketMessage>(text).map_err(|e| {
+            AppError::WebSocket(format!("Failed to parse websocket message: {e}. Raw: {text}"))
+        })?;
+
+        match msg {
+            BinanceWebSocketMessage::AccountUpdate { u: _, B: balances } => {
+                let mut updated: Vec<Balance> = Vec::with_capacity(balances.len());
+
+                for balance in balances {
+                    let free = balance.f.parse::<Decimal>().unwrap_or_default();
+                    let used = balance.l.parse::<Decimal>().unwrap_or_default();
+                    let decimal_balance = Balance {
+                        currency: balance.a,
+                        free,
+                        used,
+                        total: free + used,
                     };
-                    let _ = event_tx.send(WebSocketEvent::OrderUpdate(order)).await;
+                    let _ = event_tx
+                        .send(WebSocketEvent::BalanceUpdate(decimal_balance.clone()))
+                        .await;
+                    updated.push(decimal_balance);
                 }
-                BinanceWebSocketMessage::Heartbeat { .. } => {}
-                BinanceWebSocketMessage::Error { msg } => {
-                    return Err(AppError::WebSocket(msg));
+                {
+                    let mut state = account_state.write().await;
+                    for b in updated {
+                        if let Some(existing) =
+                            state.balances.iter_mut().find(|x| x.currency == b.currency)
+                        {
+                            *existing = b;
+                        } else {
+                            state.balances.push(b);
+                        }
+                    }
+                    state.last_update = Some(Utc::now());
                 }
-                _ => {}
             }
+            BinanceWebSocketMessage::OrderUpdate(params) => {
+                let order = Order {
+                    id: params.i.to_string(),
+                    symbol: params.s,
+                    side: parse_trade_side(&params.S),
+                    order_type: parse_order_type(&params.o),
+                    status: parse_order_status(&params.X),
+                    price: params.p.parse().ok(),
+                    amount: params.q.parse().unwrap_or_default(),
+                    filled: params.z.parse().unwrap_or_default(),
+                    remaining: {
+                        let amount = params.q.parse::<Decimal>().unwrap_or_default();
+                        let filled = params.z.parse::<Decimal>().unwrap_or_default();
+                        (amount - filled).max(Decimal::ZERO)
+                    },
+                    fee: params.n.parse().ok(),
+                    created_at: DateTime::from_timestamp_millis(params.T).unwrap_or_else(Utc::now),
+                    updated_at: Utc::now(),
+                };
+                let _ = event_tx.send(WebSocketEvent::OrderUpdate(order)).await;
+            }
+            BinanceWebSocketMessage::Heartbeat { .. } => {}
+            BinanceWebSocketMessage::Error { msg } => {
+                return Err(AppError::WebSocket(msg));
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -409,8 +466,9 @@ fn parse_order_status(status: &str) -> crate::types::OrderStatus {
         "NEW" => crate::types::OrderStatus::New,
         "PARTIALLY_FILLED" => crate::types::OrderStatus::PartiallyFilled,
         "FILLED" => crate::types::OrderStatus::Filled,
-        "CANCELED" | "EXPIRED" => crate::types::OrderStatus::Canceled,
+        "CANCELED" => crate::types::OrderStatus::Canceled,
         "REJECTED" => crate::types::OrderStatus::Rejected,
+        "EXPIRED" => crate::types::OrderStatus::Expired,
         _ => crate::types::OrderStatus::New,
     }
 }
@@ -441,7 +499,7 @@ mod tests {
     #[tokio::test]
     async fn test_websocket_manager_creation() {
         let config = WebSocketConfig::default();
-        let manager = WebSocketManager::new(config);
+        let (manager, _) = WebSocketManager::new(config);
         assert_eq!(manager.get_state().await, ConnectionState::Disconnected);
     }
 
@@ -456,29 +514,44 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_account_url() {
-        let config = WebSocketConfig::default();
-        let manager = WebSocketManager::new(config);
+        let config = WebSocketConfig {
+            api_key: Some("dummy_key".to_string()),
+            ..Default::default()
+        };
+        let (manager, _) = WebSocketManager::new(config);
         let streams = [BinanceStream::Account];
         let url = manager.build_url(&streams).unwrap();
-        assert!(url.to_string().contains("!account@balance"));
+        assert!(url.to_string().contains("streams="));
+        // URL encoded: ! -> %21, @ -> %40
+        assert!(url.to_string().contains("%21account%40balance"));
     }
 
     #[tokio::test]
     async fn test_build_order_url() {
-        let config = WebSocketConfig::default();
-        let manager = WebSocketManager::new(config);
+        let config = WebSocketConfig {
+            api_key: Some("dummy_key".to_string()),
+            ..Default::default()
+        };
+        let (manager, _) = WebSocketManager::new(config);
         let streams = [BinanceStream::Orders];
         let url = manager.build_url(&streams).unwrap();
-        assert!(url.to_string().contains("!order@0"));
+        assert!(url.to_string().contains("streams="));
+        // URL encoded: ! -> %21, @ -> %40
+        assert!(url.to_string().contains("%21order%400"));
     }
 
     #[tokio::test]
     async fn test_build_kline_url() {
         let config = WebSocketConfig::default();
-        let manager = WebSocketManager::new(config);
-        let streams = [BinanceStream::Kline("BTCUSDT".to_string(), "1m".to_string())];
+        let (manager, _) = WebSocketManager::new(config);
+        let streams = [BinanceStream::Kline(
+            "BTCUSDT".to_string(),
+            "1m".to_string(),
+        )];
         let url = manager.build_url(&streams).unwrap();
-        assert!(url.to_string().contains("btcusdt@kline_1m"));
+        assert!(url.to_string().contains("streams="));
+        // URL encoded: @ -> %40
+        assert!(url.to_string().contains("btcusdt%40kline_1m"));
     }
 
     #[tokio::test]
@@ -559,7 +632,7 @@ mod tests {
     #[tokio::test]
     async fn test_connection_state_transitions() {
         let config = WebSocketConfig::default();
-        let manager = WebSocketManager::new(config);
+        let (manager, _) = WebSocketManager::new(config);
 
         assert_eq!(manager.get_state().await, ConnectionState::Disconnected);
 
@@ -571,7 +644,7 @@ mod tests {
     #[tokio::test]
     async fn test_account_state_initial() {
         let config = WebSocketConfig::default();
-        let manager = WebSocketManager::new(config);
+        let (manager, _) = WebSocketManager::new(config);
 
         let state = manager.get_account_state().await;
         assert!(state.balances.is_empty());
@@ -588,7 +661,7 @@ mod tests {
         );
         assert_eq!(parse_order_status("FILLED"), crate::types::OrderStatus::Filled);
         assert_eq!(parse_order_status("CANCELED"), crate::types::OrderStatus::Canceled);
-        assert_eq!(parse_order_status("EXPIRED"), crate::types::OrderStatus::Canceled);
+        assert_eq!(parse_order_status("EXPIRED"), crate::types::OrderStatus::Expired);
         assert_eq!(parse_order_status("REJECTED"), crate::types::OrderStatus::Rejected);
         assert_eq!(parse_order_status("UNKNOWN"), crate::types::OrderStatus::New);
     }
