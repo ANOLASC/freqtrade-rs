@@ -40,6 +40,7 @@ pub enum BinanceStream {
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "e")]
 #[allow(non_snake_case)]
+#[allow(clippy::large_enum_variant)]
 pub enum BinanceWebSocketMessage {
     #[serde(rename = "outboundAccountPosition")]
     AccountUpdate {
@@ -47,27 +48,7 @@ pub enum BinanceWebSocketMessage {
         B: Vec<BalanceUpdate>,
     },
     #[serde(rename = "executionReport")]
-    OrderUpdate {
-        s: String,
-        c: String,
-        S: String,
-        o: String,
-        f: String,
-        p: String,
-        q: String,
-        P: String,
-        d: String,
-        x: String,
-        X: String,
-        i: i64,
-        l: String,
-        n: String,
-        N: Option<String>,
-        T: i64,
-        t: i64,
-        v: String,
-        z: String,
-    },
+    OrderUpdate(Box<OrderUpdateParams>),
     #[serde(rename = "trade")]
     Trade {
         E: i64,
@@ -88,6 +69,30 @@ pub enum BinanceWebSocketMessage {
     Error {
         msg: String,
     },
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[allow(non_snake_case)]
+pub struct OrderUpdateParams {
+    pub s: String,
+    pub c: String,
+    pub S: String,
+    pub o: String,
+    pub f: String,
+    pub p: String,
+    pub q: String,
+    pub P: String,
+    pub d: String,
+    pub x: String,
+    pub X: String,
+    pub i: i64,
+    pub l: String,
+    pub n: String,
+    pub N: Option<String>,
+    pub T: i64,
+    pub t: i64,
+    pub v: String,
+    pub z: String,
 }
 
 /// Balance update in account
@@ -348,34 +353,23 @@ impl WebSocketManager {
                         state.last_update = Some(Utc::now());
                     }
                 }
-                BinanceWebSocketMessage::OrderUpdate {
-                    s: symbol,
-                    X: status,
-                    i: order_id,
-                    S,
-                    o,
-                    p,
-                    q,
-                    z,
-                    n,
-                    T,
-                    ..
-                } => {
+                BinanceWebSocketMessage::OrderUpdate(params) => {
                     let order = Order {
-                        id: order_id.to_string(),
-                        symbol,
-                        side: parse_trade_side(&S),
-                        order_type: parse_order_type(&o),
-                        status: parse_order_status(&status),
-                        price: p.parse().ok(),
-                        amount: q.parse().unwrap_or_default(),
-                        filled: z.parse().unwrap_or_default(),
-                        remaining: q
+                        id: params.i.to_string(),
+                        symbol: params.s,
+                        side: parse_trade_side(&params.S),
+                        order_type: parse_order_type(&params.o),
+                        status: parse_order_status(&params.X),
+                        price: params.p.parse().ok(),
+                        amount: params.q.parse().unwrap_or_default(),
+                        filled: params.z.parse().unwrap_or_default(),
+                        remaining: params
+                            .q
                             .parse::<Decimal>()
                             .unwrap_or_default()
-                            .saturating_sub(z.parse().unwrap_or_default()),
-                        fee: n.parse().ok(),
-                        created_at: DateTime::from_timestamp_millis(T).unwrap_or_else(Utc::now),
+                            .saturating_sub(params.z.parse().unwrap_or_default()),
+                        fee: params.n.parse().ok(),
+                        created_at: DateTime::from_timestamp_millis(params.T).unwrap_or_else(Utc::now),
                         updated_at: Utc::now(),
                     };
                     let _ = event_tx.send(WebSocketEvent::OrderUpdate(order)).await;
@@ -537,10 +531,10 @@ mod tests {
 
         let msg: BinanceWebSocketMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BinanceWebSocketMessage::OrderUpdate { s, X, i, .. } => {
-                assert_eq!(s, "BTCUSDT");
-                assert_eq!(X, "FILLED");
-                assert_eq!(i, 12345);
+            BinanceWebSocketMessage::OrderUpdate(params) => {
+                assert_eq!(params.s, "BTCUSDT");
+                assert_eq!(params.X, "FILLED");
+                assert_eq!(params.i, 12345);
             }
             _ => panic!("Expected OrderUpdate"),
         }
